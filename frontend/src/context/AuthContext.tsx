@@ -45,7 +45,7 @@ const DEMO_GYM: Gym = {
   secondaryColor: '#2563eb'
 };
 
-const MOCK_USERS: Record<string, User> = {
+const DEFAULT_MOCK_USERS: Record<string, User> = {
   'admin@fitpulse.com': {
     id: 'usr-admin',
     email: 'admin@fitpulse.com',
@@ -134,9 +134,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    // Static Web App Fallback
+    // Client-Side Fallback for Static Web Apps
     const lowerEmail = email.toLowerCase().trim();
-    const matchedUser = MOCK_USERS[lowerEmail];
+    const localUsers = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
+    let matchedUser = localUsers.find((u: any) => u.email.toLowerCase() === lowerEmail);
+    if (!matchedUser) {
+      matchedUser = DEFAULT_MOCK_USERS[lowerEmail];
+    }
+
     if (matchedUser) {
       setUser(matchedUser);
       setToken('mock-jwt-token-azure-static');
@@ -181,6 +186,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       gymId: 'gym-dutra12',
       trainerId: 'usr-trainer-dutra'
     };
+
+    const localUsers = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
+    localStorage.setItem('fitpulse_users', JSON.stringify([...localUsers, newSt]));
+
     setUser(newSt);
     setToken('mock-jwt-token-azure-static');
     setGym(DEMO_GYM);

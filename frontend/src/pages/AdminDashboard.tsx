@@ -28,13 +28,17 @@ export const AdminDashboard: React.FC = () => {
   const fetchGyms = async () => {
     try {
       const res = await fetch('/api/gyms');
-      if (res.ok) {
+      const contentType = res.headers.get('content-type');
+      if (res.ok && contentType && contentType.includes('application/json')) {
         const data = await res.json();
         setGyms(data);
+        return;
       }
     } catch (err) {
-      console.error('Error loading gyms:', err);
+      console.warn('Error loading gyms, using client storage fallback:', err);
     }
+    const localGyms = JSON.parse(localStorage.getItem('fitpulse_gyms') || '[]');
+    setGyms(localGyms);
   };
 
   useEffect(() => {
@@ -54,6 +58,16 @@ export const AdminDashboard: React.FC = () => {
 
   const handleSaveGym = async (e: React.FormEvent) => {
     e.preventDefault();
+    const newGym: Gym = {
+      id: editingGym ? editingGym.id : `gym-${Date.now()}`,
+      name,
+      slug: slug.toLowerCase().replace(/\s+/g, '-'),
+      logoUrl: logoUrl || 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=200&q=80',
+      bannerUrl: bannerUrl || 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1200&q=80',
+      primaryColor,
+      secondaryColor
+    };
+
     try {
       const url = editingGym ? `/api/gyms/${editingGym.id}` : '/api/gyms';
       const method = editingGym ? 'PUT' : 'POST';
@@ -61,16 +75,10 @@ export const AdminDashboard: React.FC = () => {
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          slug: slug.toLowerCase().replace(/\s+/g, '-'),
-          logoUrl: logoUrl || 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=200&q=80',
-          bannerUrl: bannerUrl || 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1200&q=80',
-          primaryColor,
-          secondaryColor
-        })
+        body: JSON.stringify(newGym)
       });
-      if (res.ok) {
+      const contentType = res.headers.get('content-type');
+      if (res.ok && contentType && contentType.includes('application/json')) {
         setShowModal(false);
         setEditingGym(null);
         setName('');
@@ -78,15 +86,43 @@ export const AdminDashboard: React.FC = () => {
         setLogoUrl('');
         setBannerUrl('');
         fetchGyms();
+        return;
       }
     } catch (err) {
-      console.error(err);
+      console.warn('Saving gym to client storage:', err);
     }
+
+    const localGyms = JSON.parse(localStorage.getItem('fitpulse_gyms') || '[]');
+    const existingIdx = localGyms.findIndex((g: any) => g.id === newGym.id);
+    let updatedGyms;
+    if (existingIdx !== -1) {
+      localGyms[existingIdx] = newGym;
+      updatedGyms = localGyms;
+    } else {
+      updatedGyms = [...localGyms, newGym];
+    }
+    localStorage.setItem('fitpulse_gyms', JSON.stringify(updatedGyms));
+    setShowModal(false);
+    setEditingGym(null);
+    setName('');
+    setSlug('');
+    setLogoUrl('');
+    setBannerUrl('');
+    setGyms(updatedGyms);
   };
 
   const handleCreateTrainer = async (e: React.FormEvent) => {
     e.preventDefault();
     const tempPassword = 'coach' + Math.floor(1000 + Math.random() * 9000);
+
+    const newTrainer = {
+      id: `usr-${Date.now()}`,
+      name: trainerName,
+      email: trainerEmail,
+      role: 'TRAINER',
+      gymId: gyms[0]?.id || 'gym-dutra12',
+      inviteCode: `TRN-${trainerName.toUpperCase().replace(/\s+/g, '')}`
+    };
 
     try {
       const res = await fetch('/api/trainers', {
@@ -100,7 +136,8 @@ export const AdminDashboard: React.FC = () => {
         })
       });
 
-      if (res.ok) {
+      const contentType = res.headers.get('content-type');
+      if (res.ok && contentType && contentType.includes('application/json')) {
         setSentEmailModal({
           to: trainerEmail,
           name: trainerName,
@@ -110,13 +147,23 @@ export const AdminDashboard: React.FC = () => {
         setShowTrainerModal(false);
         setTrainerName('');
         setTrainerEmail('');
-      } else {
-        const err = await res.json();
-        alert(err.error || 'Erro ao cadastrar treinador');
+        return;
       }
     } catch (err) {
-      console.error(err);
+      console.warn('Saving trainer to client storage:', err);
     }
+
+    const localUsers = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
+    localStorage.setItem('fitpulse_users', JSON.stringify([...localUsers, newTrainer]));
+    setSentEmailModal({
+      to: trainerEmail,
+      name: trainerName,
+      tempPassword,
+      accessLink: `${window.location.origin}/login`
+    });
+    setShowTrainerModal(false);
+    setTrainerName('');
+    setTrainerEmail('');
   };
 
   return (
