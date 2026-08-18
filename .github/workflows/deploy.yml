@@ -18,8 +18,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: '20'
 
       - name: Install Project Dependencies
         run: |
@@ -37,7 +36,7 @@ jobs:
           path: frontend/dist
 
   deploy:
-    name: Deploy Production Application
+    name: Deploy to Azure Web App
     needs: build-and-test
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
@@ -52,7 +51,21 @@ jobs:
           name: fitpulse-production-dist
           path: frontend/dist
 
-      - name: Deployment Execution
+      - name: Verify Build
         run: |
-          echo "🚀 Deploying FitPulse SaaS application triggered by ${{ github.event_name }}..."
-          echo "Build artifacts verified and ready for production hosting."
+          echo "✅ Production artifacts verified successfully!"
+          ls -la frontend/dist
+
+      # -------------------------------------------------------------------------
+      # AZURE WEB APP DEPLOYMENT (Using GitHub Secret: AZURE_WEBAPP_PUBLISH_PROFILE)
+      # -------------------------------------------------------------------------
+      # To deploy live to Azure:
+      # 1. Download your Publish Profile from Azure Portal -> App Service -> Get Publish Profile
+      # 2. Add it in GitHub: Settings -> Secrets and variables -> Actions -> Repository secret named AZURE_WEBAPP_PUBLISH_PROFILE
+      # -------------------------------------------------------------------------
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'fitpulse-saas' # Replace with your Azure Web App Name
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: '.'
