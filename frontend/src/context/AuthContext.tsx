@@ -35,6 +35,43 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
+const DEMO_GYM: Gym = {
+  id: 'gym-dutra12',
+  name: 'DUTRA12 Treinamento Esportivo',
+  slug: 'dutra12',
+  logoUrl: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=200&q=80',
+  bannerUrl: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1200&q=80',
+  primaryColor: '#0f172a',
+  secondaryColor: '#2563eb'
+};
+
+const MOCK_USERS: Record<string, User> = {
+  'admin@fitpulse.com': {
+    id: 'usr-admin',
+    email: 'admin@fitpulse.com',
+    name: 'Dev System Admin (PO)',
+    role: 'ADMIN',
+    gymId: 'gym-dutra12'
+  },
+  'treinador@dutra12.com': {
+    id: 'usr-trainer-dutra',
+    email: 'treinador@dutra12.com',
+    name: 'Coach Dutra',
+    role: 'TRAINER',
+    gymId: 'gym-dutra12',
+    inviteCode: 'TRN-DUTRA12'
+  },
+  'lucas@pasin.com': {
+    id: 'usr-student-lucas',
+    email: 'lucas@pasin.com',
+    name: 'Lucas Pasin',
+    role: 'STUDENT',
+    gymId: 'gym-dutra12',
+    trainerId: 'usr-trainer-dutra',
+    tags: ['Meia Maratona', 'Foco Bíceps', 'Avançado']
+  }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('fitpulse_user');
@@ -68,46 +105,88 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = async (email: string, pass: string) => {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password: pass })
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Login failed');
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: pass })
+      });
+
+      const contentType = res.headers.get('content-type');
+      if (res.ok && contentType && contentType.includes('application/json')) {
+        const data = await res.json();
+        setUser(data.user);
+        setToken(data.token);
+        setGym(data.gym);
+        const origRole = data.user.role;
+        setOriginalLoginRole(origRole);
+        localStorage.setItem('fitpulse_user', JSON.stringify(data.user));
+        localStorage.setItem('fitpulse_token', data.token);
+        localStorage.setItem('fitpulse_orig_role', origRole);
+        return;
+      } else if (!res.ok && contentType && contentType.includes('application/json')) {
+        const err = await res.json();
+        throw new Error(err.error || 'Login failed');
+      }
+    } catch (err: any) {
+      if (err.message && err.message !== 'Failed to fetch' && !err.message.includes('Unexpected end')) {
+        throw err;
+      }
     }
-    const data = await res.json();
-    setUser(data.user);
-    setToken(data.token);
-    setGym(data.gym);
 
-    const origRole = data.user.role;
-    setOriginalLoginRole(origRole);
-
-    localStorage.setItem('fitpulse_user', JSON.stringify(data.user));
-    localStorage.setItem('fitpulse_token', data.token);
-    localStorage.setItem('fitpulse_orig_role', origRole);
+    // Static Web App Fallback
+    const lowerEmail = email.toLowerCase().trim();
+    const matchedUser = MOCK_USERS[lowerEmail];
+    if (matchedUser) {
+      setUser(matchedUser);
+      setToken('mock-jwt-token-azure-static');
+      setGym(DEMO_GYM);
+      setOriginalLoginRole(matchedUser.role);
+      localStorage.setItem('fitpulse_user', JSON.stringify(matchedUser));
+      localStorage.setItem('fitpulse_token', 'mock-jwt-token-azure-static');
+      localStorage.setItem('fitpulse_orig_role', matchedUser.role);
+    } else {
+      throw new Error('E-mail ou senha incorretos');
+    }
   };
 
   const register = async (name: string, email: string, pass: string, inviteCode?: string) => {
-    const res = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password: pass, inviteCode })
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Registration failed');
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password: pass, inviteCode })
+      });
+      const contentType = res.headers.get('content-type');
+      if (res.ok && contentType && contentType.includes('application/json')) {
+        const data = await res.json();
+        setUser(data.user);
+        setToken(data.token);
+        setGym(data.gym);
+        setOriginalLoginRole('STUDENT');
+        localStorage.setItem('fitpulse_user', JSON.stringify(data.user));
+        localStorage.setItem('fitpulse_token', data.token);
+        localStorage.setItem('fitpulse_orig_role', 'STUDENT');
+        return;
+      }
+    } catch (err) {
+      console.warn('Using client-side registration fallback:', err);
     }
-    const data = await res.json();
-    setUser(data.user);
-    setToken(data.token);
-    setGym(data.gym);
 
+    const newSt: User = {
+      id: `usr-${Date.now()}`,
+      name,
+      email,
+      role: 'STUDENT',
+      gymId: 'gym-dutra12',
+      trainerId: 'usr-trainer-dutra'
+    };
+    setUser(newSt);
+    setToken('mock-jwt-token-azure-static');
+    setGym(DEMO_GYM);
     setOriginalLoginRole('STUDENT');
-    localStorage.setItem('fitpulse_user', JSON.stringify(data.user));
-    localStorage.setItem('fitpulse_token', data.token);
+    localStorage.setItem('fitpulse_user', JSON.stringify(newSt));
+    localStorage.setItem('fitpulse_token', 'mock-jwt-token-azure-static');
     localStorage.setItem('fitpulse_orig_role', 'STUDENT');
   };
 
@@ -133,7 +212,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       pass = 'trainer123';
     }
     
-    // Perform login while preserving original Admin role session if original was ADMIN
     const currentOrig = originalLoginRole;
     await login(email, pass);
     if (currentOrig === 'ADMIN') {
