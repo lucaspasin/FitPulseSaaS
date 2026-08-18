@@ -176,8 +176,8 @@ export const AdminDashboard: React.FC = () => {
             <Shield className="w-8 h-8" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-black">Painel Master — Dev / Product Owner</h1>
-            <p className="text-xs text-purple-200 font-medium">Gerencie Academias, Identidade Visual e Treinadores do FitPulse</p>
+            <h1 className="text-xl sm:text-2xl font-black">{t('masterPanelTitle')}</h1>
+            <p className="text-xs text-purple-200 font-medium">{t('masterPanelSub')}</p>
           </div>
         </div>
 
@@ -187,7 +187,7 @@ export const AdminDashboard: React.FC = () => {
             className="px-4 py-2.5 rounded-xl bg-purple-900/80 hover:bg-purple-800 text-purple-200 text-xs font-bold border border-purple-700 flex items-center gap-1.5 transition-all"
           >
             <Mail className="w-4 h-4" />
-            <span>Novo Treinador</span>
+            <span>{t('newTrainer')}</span>
           </button>
           <button
             onClick={() => {
@@ -209,17 +209,17 @@ export const AdminDashboard: React.FC = () => {
       {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 space-y-1 shadow-sm">
-          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Academias Ativas</span>
+          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{t('activeGymsCount')}</span>
           <span className="text-2xl font-black text-slate-900 dark:text-white block">{gyms.length}</span>
         </div>
 
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 space-y-1 shadow-sm">
-          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Treinadores Ativos</span>
+          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{t('activeTrainersCount')}</span>
           <span className="text-2xl font-black text-blue-600 dark:text-blue-400 block">4</span>
         </div>
 
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 space-y-1 shadow-sm">
-          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Alunos na Plataforma</span>
+          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{t('platformStudentsCount')}</span>
           <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 block">18</span>
         </div>
       </div>
@@ -228,7 +228,7 @@ export const AdminDashboard: React.FC = () => {
       <div className="space-y-4">
         <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
           <Building2 className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-          <span>Academias & Identidades Visuais (Whitelabel)</span>
+          <span>{t('gymsWhitelabelTitle')}</span>
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -251,13 +251,13 @@ export const AdminDashboard: React.FC = () => {
                       onClick={() => handleOpenEditGym(g)}
                       className="px-3 py-1.5 rounded-lg bg-purple-100 dark:bg-purple-950 hover:bg-purple-200 dark:hover:bg-purple-900 text-purple-700 dark:text-purple-300 text-xs font-bold border border-purple-300 dark:border-purple-800 flex items-center gap-1 transition-colors"
                     >
-                      <Edit2 className="w-3.5 h-3.5" /> Editar Academia
+                      <Edit2 className="w-3.5 h-3.5" /> {t('editGym')}
                     </button>
                     <button
                       onClick={() => setGym(g)}
                       className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold border border-slate-200 dark:border-slate-700 transition-colors"
                     >
-                      Simular Tema
+                      {t('simulateTheme')}
                     </button>
                   </div>
                 </div>
@@ -269,11 +269,11 @@ export const AdminDashboard: React.FC = () => {
 
                 <div className="flex items-center gap-4 text-xs pt-2 border-t border-slate-200 dark:border-slate-800">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-slate-500 dark:text-slate-400">Cor Primária:</span>
+                    <span className="text-slate-500 dark:text-slate-400">{t('primaryColorLabel')}:</span>
                     <span className="w-4 h-4 rounded-full border border-slate-300 dark:border-white/20 shadow-sm" style={{ backgroundColor: g.primaryColor }} />
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-slate-500 dark:text-slate-400">Cor Secundária:</span>
+                    <span className="text-slate-500 dark:text-slate-400">{t('secondaryColorLabel')}:</span>
                     <span className="w-4 h-4 rounded-full border border-slate-300 dark:border-white/20 shadow-sm" style={{ backgroundColor: g.secondaryColor }} />
                   </div>
                 </div>
@@ -289,12 +289,12 @@ export const AdminDashboard: React.FC = () => {
           <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
             <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
               <Mail className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-              <span>Cadastrar Novo Treinador (Enviar Convite por E-mail)</span>
+              <span>{t('newTrainerModalTitle')}</span>
             </h3>
 
             <form onSubmit={handleCreateTrainer} className="space-y-3 text-xs">
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Nome do Treinador</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">{t('trainerName')}</label>
                 <input
                   type="text"
                   value={trainerName}
@@ -306,7 +306,7 @@ export const AdminDashboard: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">E-mail do Treinador</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">{t('trainerEmail')}</label>
                 <input
                   type="email"
                   value={trainerEmail}
@@ -319,10 +319,10 @@ export const AdminDashboard: React.FC = () => {
 
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setShowTrainerModal(false)} className="px-4 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                  Cancelar
+                  {t('cancel')}
                 </button>
                 <button type="submit" className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold shadow-lg shadow-purple-600/30 flex items-center gap-1.5">
-                  <Send className="w-4 h-4" /> Cadastrar & Enviar E-mail
+                  <Send className="w-4 h-4" /> {t('registerAndSendEmail')}
                 </button>
               </div>
             </form>
@@ -339,19 +339,18 @@ export const AdminDashboard: React.FC = () => {
                 <Send className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-extrabold text-base text-white">E-mail de Boas-Vindas Enviado!</h3>
-                <p className="text-xs text-slate-400">Novo treinador cadastrado com sucesso no sistema</p>
+                <h3 className="font-extrabold text-base text-white">{t('welcomeEmailSentTitle')}</h3>
+                <p className="text-xs text-slate-400">{t('welcomeEmailSentSub')}</p>
               </div>
             </div>
 
             <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 font-mono text-xs space-y-2 text-slate-300">
-              <p><strong>Para:</strong> {sentEmailModal.to}</p>
-              <p><strong>Assunto:</strong> Bem-vindo ao FitPulse — Seu Acesso de Treinador</p>
+              <p><strong>To:</strong> {sentEmailModal.to}</p>
+              <p><strong>Subject:</strong> FitPulse — {t('welcomeBack')}</p>
               <hr className="border-slate-800 my-2" />
-              <p>Olá <strong>{sentEmailModal.name}</strong>,</p>
-              <p>Sua conta de treinador foi criada com sucesso pelo Administrador.</p>
-              <p>Sua senha provisória de primeiro acesso é: <span className="bg-purple-950 text-purple-300 px-2 py-0.5 rounded font-bold">{sentEmailModal.tempPassword}</span></p>
-              <p>Link de acesso: <a href={sentEmailModal.accessLink} className="text-blue-400 underline">{sentEmailModal.accessLink}</a></p>
+              <p>Hello <strong>{sentEmailModal.name}</strong>,</p>
+              <p>{t('tempPasswordNotice')} <span className="bg-purple-950 text-purple-300 px-2 py-0.5 rounded font-bold">{sentEmailModal.tempPassword}</span></p>
+              <p>{t('accessLinkNotice')} <a href={sentEmailModal.accessLink} className="text-blue-400 underline">{sentEmailModal.accessLink}</a></p>
             </div>
 
             <div className="flex justify-end">
@@ -359,7 +358,7 @@ export const AdminDashboard: React.FC = () => {
                 onClick={() => setSentEmailModal(null)}
                 className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold"
               >
-                Concluído
+                {t('completedBtn')}
               </button>
             </div>
           </div>
@@ -372,12 +371,12 @@ export const AdminDashboard: React.FC = () => {
           <div className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl space-y-5">
             <h3 className="text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
               <Building2 className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-              <span>{editingGym ? 'Editar Academia' : 'Cadastrar Nova Academia / Tenant'}</span>
+              <span>{editingGym ? t('editGym') : t('createGym')}</span>
             </h3>
 
             <form onSubmit={handleSaveGym} className="space-y-4 text-xs">
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Nome da Academia</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">{t('gymNameLabel')}</label>
                 <input
                   type="text"
                   value={name}
@@ -389,7 +388,7 @@ export const AdminDashboard: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Slug URL</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">{t('slugUrlLabel')}</label>
                 <input
                   type="text"
                   value={slug}
@@ -401,7 +400,7 @@ export const AdminDashboard: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">URL do Logo</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">{t('logoUrlLabel')}</label>
                 <input
                   type="text"
                   value={logoUrl}
@@ -412,7 +411,7 @@ export const AdminDashboard: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">URL do Banner</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">{t('bannerUrlLabel')}</label>
                 <input
                   type="text"
                   value={bannerUrl}
@@ -424,7 +423,7 @@ export const AdminDashboard: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Cor Primária</label>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">{t('primaryColorLabel')}</label>
                   <input
                     type="color"
                     value={primaryColor}
@@ -433,7 +432,7 @@ export const AdminDashboard: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Cor Secundária</label>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">{t('secondaryColorLabel')}</label>
                   <input
                     type="color"
                     value={secondaryColor}

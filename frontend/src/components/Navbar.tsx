@@ -39,7 +39,7 @@ export const Navbar: React.FC = () => {
         {originalLoginRole === 'ADMIN' && (
           <div className="hidden md:flex items-center gap-1.5 bg-purple-50 dark:bg-slate-900/90 border border-purple-200 dark:border-slate-800 rounded-full p-1 text-xs shadow-sm">
             <span className="text-[11px] font-semibold text-purple-700 dark:text-purple-300 px-2 flex items-center gap-1">
-              <RefreshCw className="w-3 h-3 text-purple-600 dark:text-purple-400" /> Modo Admin (Trocar Vista):
+              <RefreshCw className="w-3 h-3 text-purple-600 dark:text-purple-400" /> {t('adminModeSwitch')}
             </span>
             <button
               onClick={() => switchDemoRole('ADMIN')}

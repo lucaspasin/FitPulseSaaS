@@ -273,7 +273,7 @@ export const TrainerDashboard: React.FC = () => {
         headers: { 'Content-Type': 'application/json' }
       });
       if (res.ok) {
-        alert('Pagamento marcado como PAGO! Próximo mês renovado automaticamente.');
+        alert(t('paid'));
         if (selectedStudentDetail) {
           const resP = await fetch(`/api/students/${selectedStudentDetail.id}/payments`);
           if (resP.ok) setStudentPaymentHistory(await resP.json());
@@ -287,7 +287,7 @@ export const TrainerDashboard: React.FC = () => {
     const localPay = JSON.parse(localStorage.getItem('fitpulse_payments') || '[]');
     const updatedPay = localPay.map((p: any) => p.id === paymentId ? { ...p, status: 'PAID', paidAt: new Date().toISOString() } : p);
     localStorage.setItem('fitpulse_payments', JSON.stringify(updatedPay));
-    alert('Pagamento marcado como PAGO! Próximo mês renovado automaticamente.');
+    alert(t('paid'));
     if (selectedStudentDetail) {
       setStudentPaymentHistory(updatedPay.filter((p: any) => p.studentId === selectedStudentDetail.id));
     }
@@ -354,7 +354,7 @@ export const TrainerDashboard: React.FC = () => {
       });
       const contentType = res.headers.get('content-type');
       if (res.ok && contentType && contentType.includes('application/json')) {
-        alert('Prescrição de treino salva com sucesso!');
+        alert(t('save'));
         setEditingScheduleData(null);
         if (selectedStudentDetail) {
           const resS = await fetch(`/api/students/${selectedStudentDetail.id}/schedules`);
@@ -376,7 +376,7 @@ export const TrainerDashboard: React.FC = () => {
       updated = [editingScheduleData, ...localSched];
     }
     localStorage.setItem('fitpulse_schedules', JSON.stringify(updated));
-    alert('Prescrição de treino salva com sucesso!');
+    alert(t('save'));
     setEditingScheduleData(null);
     if (selectedStudentDetail) {
       setStudentSchedulesList(updated.filter((s: any) => s.studentId === selectedStudentDetail.id));
@@ -385,7 +385,7 @@ export const TrainerDashboard: React.FC = () => {
 
   const handleDeleteRoutine = (wIdx: number) => {
     if (!editingScheduleData) return;
-    if (!confirm('Deseja realmente excluir esta rotina de treino inteira?')) return;
+    if (!confirm(t('deleteRoutine') + '?')) return;
     const updatedWorkouts = editingScheduleData.workouts.filter((_: any, idx: number) => idx !== wIdx);
     setEditingScheduleData({ ...editingScheduleData, workouts: updatedWorkouts });
   };
@@ -464,7 +464,7 @@ export const TrainerDashboard: React.FC = () => {
   };
 
   const handleDeleteExerciseBankItem = async (id: string) => {
-    if (!confirm('Deseja realmente remover este exercício do banco?')) return;
+    if (!confirm(t('deleteExercise') + '?')) return;
     try {
       const res = await fetch(`/api/exercises/${id}`, { method: 'DELETE' });
       if (res.ok) {
@@ -491,8 +491,8 @@ export const TrainerDashboard: React.FC = () => {
             <UserCheck className="w-8 h-8" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-black">Backoffice do Treinador</h1>
-            <p className="text-xs text-blue-200 font-medium">FitPulse — Gestão Segmentada de Alunos, Treinos e Cobrança</p>
+            <h1 className="text-xl sm:text-2xl font-black">{t('trainerBackoffice')}</h1>
+            <p className="text-xs text-blue-200 font-medium">{t('trainerSubtagline')}</p>
           </div>
         </div>
 
@@ -501,7 +501,7 @@ export const TrainerDashboard: React.FC = () => {
           className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-600/30 flex items-center gap-2 transition-all"
         >
           {copiedLink ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
-          <span>{copiedLink ? t('copied') : 'Copiar Link de Indicação'}</span>
+          <span>{copiedLink ? t('copied') : t('copyLink')}</span>
         </button>
       </div>
 
@@ -514,7 +514,7 @@ export const TrainerDashboard: React.FC = () => {
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>Todos os Alunos ({students.length})</span>
+          <span>{t('allStudents')} ({students.length})</span>
         </button>
 
         <button
@@ -524,7 +524,7 @@ export const TrainerDashboard: React.FC = () => {
           }`}
         >
           <AlertTriangle className="w-4 h-4 text-amber-300" />
-          <span>Treinos Próximos do Vencimento (1)</span>
+          <span>{t('expiringWorkouts')} (1)</span>
         </button>
 
         <button
@@ -534,7 +534,7 @@ export const TrainerDashboard: React.FC = () => {
           }`}
         >
           <CreditCard className="w-4 h-4 text-rose-300" />
-          <span>Pagamentos Próximos do Vencimento (1)</span>
+          <span>{t('expiringPayments')} (1)</span>
         </button>
 
         <button
@@ -544,7 +544,7 @@ export const TrainerDashboard: React.FC = () => {
           }`}
         >
           <Dumbbell className="w-4 h-4" />
-          <span>Banco de Exercícios ({exercises.length})</span>
+          <span>{t('exercises')} ({exercises.length})</span>
         </button>
 
         <button
@@ -554,7 +554,7 @@ export const TrainerDashboard: React.FC = () => {
           }`}
         >
           <Settings className="w-4 h-4" />
-          <span>Perfil PIX</span>
+          <span>{t('pixProfile')}</span>
         </button>
       </div>
 
@@ -568,13 +568,13 @@ export const TrainerDashboard: React.FC = () => {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Buscar aluno por Nome, E-mail ou Categoria..."
+                placeholder={t('searchStudentPlaceholder')}
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:border-blue-500"
               />
             </div>
 
             <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
-              Exibindo <strong>{filteredStudents.length}</strong> de {students.length} alunos
+              {t('showingStudentsCount').replace('{0}', String(filteredStudents.length)).replace('{1}', String(students.length))}
             </div>
           </div>
 
@@ -595,7 +595,7 @@ export const TrainerDashboard: React.FC = () => {
                       ? 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400 border border-rose-300 dark:border-rose-800'
                       : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800'
                   }`}>
-                    {st.status === 'INACTIVE' ? 'Inativo' : 'Ativo'}
+                    {st.status === 'INACTIVE' ? t('inactiveStatus') : t('activeStatus')}
                   </span>
                 </div>
 
@@ -619,8 +619,8 @@ export const TrainerDashboard: React.FC = () => {
             <div className="flex items-center gap-3">
               <AlertTriangle className="w-6 h-6 text-amber-500 shrink-0" />
               <div>
-                <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">Treinos Próximos do Vencimento</h3>
-                <p className="text-slate-600 dark:text-slate-400">Estes alunos precisam de uma nova prescrição de treino em breve</p>
+                <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">{t('expiringWorkouts')}</h3>
+                <p className="text-slate-600 dark:text-slate-400">{t('expiringWorkoutsSub')}</p>
               </div>
             </div>
           </div>
@@ -635,10 +635,10 @@ export const TrainerDashboard: React.FC = () => {
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="font-extrabold text-base text-slate-900 dark:text-white">{st.name}</h3>
-                    <span className="text-xs text-amber-600 dark:text-amber-400 font-bold">Treino Vence em 18 dias (06/09/2026)</span>
+                    <span className="text-xs text-amber-600 dark:text-amber-400 font-bold">{t('workoutExpiresIn').replace('{0}', '18 dias (06/09/2026)')}</span>
                   </div>
                   <span className="px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400 text-[10px] font-bold uppercase">
-                    Refresh Necessário
+                    {t('refreshNeeded')}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400">Ciclo Atual: Meia Maratona & Hipertrofia</p>
@@ -655,8 +655,8 @@ export const TrainerDashboard: React.FC = () => {
             <div className="flex items-center gap-3">
               <CreditCard className="w-6 h-6 text-rose-500 shrink-0" />
               <div>
-                <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">Pagamentos Próximos do Vencimento / Pendentes</h3>
-                <p className="text-slate-600 dark:text-slate-400">Alunos com mensalidades vencidas ou com vencimento próximo</p>
+                <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">{t('expiringPayments')}</h3>
+                <p className="text-slate-600 dark:text-slate-400">{t('expiringPaymentsSub')}</p>
               </div>
             </div>
           </div>
@@ -671,10 +671,10 @@ export const TrainerDashboard: React.FC = () => {
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="font-extrabold text-base text-slate-900 dark:text-white">{st.name}</h3>
-                    <span className="text-xs text-rose-600 dark:text-rose-400 font-bold">Mensalidade Vencida: R$ 250,00 (Vencimento: 10/09/2026)</span>
+                    <span className="text-xs text-rose-600 dark:text-rose-400 font-bold">{t('paymentOverdueMsg').replace('{0}', '250,00').replace('{1}', '10/09/2026')}</span>
                   </div>
                   <span className="px-2.5 py-1 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400 text-[10px] font-bold uppercase">
-                    Pendente
+                    {t('pending')}
                   </span>
                 </div>
               </div>
@@ -687,7 +687,7 @@ export const TrainerDashboard: React.FC = () => {
       {activeSubTab === 'exercises' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-black text-slate-900 dark:text-white">Banco de Exercícios com GIF</h2>
+            <h2 className="text-base font-black text-slate-900 dark:text-white">{t('exerciseBankTitle')}</h2>
             <button
               onClick={() => {
                 setEditingExId(null);
@@ -698,7 +698,7 @@ export const TrainerDashboard: React.FC = () => {
               }}
               className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center gap-1.5 shadow"
             >
-              <Plus className="w-4 h-4" /> Cadastrar Exercício
+              <Plus className="w-4 h-4" /> {t('createExercise')}
             </button>
           </div>
 
@@ -759,14 +759,14 @@ export const TrainerDashboard: React.FC = () => {
               <Settings className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="font-black text-lg text-slate-900 dark:text-white">Perfil de Cobrança PIX do Treinador</h3>
+              <h3 className="font-black text-lg text-slate-900 dark:text-white">{t('pixBillingProfileTitle')}</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">Configure sua Chave PIX padrão enviada aos alunos</p>
             </div>
           </div>
 
           <div className="space-y-4 text-xs">
             <div>
-              <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">Tipo de Chave PIX</label>
+              <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">{t('pixKeyTypeLabel')}</label>
               <select
                 value={trainerPixKeyType}
                 onChange={(e) => setTrainerPixKeyType(e.target.value as any)}
@@ -781,7 +781,7 @@ export const TrainerDashboard: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">Chave PIX</label>
+              <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">{t('pixKey')}</label>
               <input
                 type="text"
                 value={trainerPixKey}
@@ -792,10 +792,10 @@ export const TrainerDashboard: React.FC = () => {
 
             <div className="pt-2 flex justify-end">
               <button
-                onClick={() => alert('Configurações de PIX salvas no perfil!')}
+                onClick={() => alert(t('save'))}
                 className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold shadow-lg shadow-emerald-600/30 flex items-center gap-2"
               >
-                <Save className="w-4 h-4" /> Salvar Perfil PIX
+                <Save className="w-4 h-4" /> {t('savePixProfile')}
               </button>
             </div>
           </div>
@@ -833,7 +833,7 @@ export const TrainerDashboard: React.FC = () => {
                     studentDetailTab === 'info' ? 'bg-blue-600 text-white shadow' : 'text-slate-600 dark:text-slate-400'
                   }`}
                 >
-                  <Info className="w-4 h-4" /> Informações & Status
+                  <Info className="w-4 h-4" /> {t('infoAndStatus')}
                 </button>
 
                 <button
@@ -842,7 +842,7 @@ export const TrainerDashboard: React.FC = () => {
                     studentDetailTab === 'payments' ? 'bg-blue-600 text-white shadow' : 'text-slate-600 dark:text-slate-400'
                   }`}
                 >
-                  <QrCode className="w-4 h-4" /> Pagamentos & PIX
+                  <QrCode className="w-4 h-4" /> {t('paymentsAndPix')}
                 </button>
 
                 <button
@@ -851,7 +851,7 @@ export const TrainerDashboard: React.FC = () => {
                     studentDetailTab === 'trains' ? 'bg-blue-600 text-white shadow' : 'text-slate-600 dark:text-slate-400'
                   }`}
                 >
-                  <Dumbbell className="w-4 h-4" /> Prescrições & Treinos ({studentSchedulesList.length})
+                  <Dumbbell className="w-4 h-4" /> {t('prescriptionsAndWorkouts')} ({studentSchedulesList.length})
                 </button>
               </div>
 
@@ -860,9 +860,9 @@ export const TrainerDashboard: React.FC = () => {
                 <div className="space-y-6 text-xs">
                   <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
                     <div>
-                      <span className="text-slate-500 dark:text-slate-400 font-medium">Status do Cadastro:</span>
+                      <span className="text-slate-500 dark:text-slate-400 font-medium">{t('accountStatus')}:</span>
                       <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">
-                        {selectedStudentDetail.status === 'INACTIVE' ? 'Inativo / Pausado' : 'Ativo'}
+                        {selectedStudentDetail.status === 'INACTIVE' ? t('inactiveStatus') : t('activeStatus')}
                       </h4>
                     </div>
                     <button
@@ -874,13 +874,13 @@ export const TrainerDashboard: React.FC = () => {
                       }`}
                     >
                       {selectedStudentDetail.status === 'INACTIVE' ? <UserCheckIcon className="w-4 h-4" /> : <UserX className="w-4 h-4" />}
-                      <span>{selectedStudentDetail.status === 'INACTIVE' ? 'Reativar Aluno' : 'Inativar Aluno'}</span>
+                      <span>{selectedStudentDetail.status === 'INACTIVE' ? t('reactivateStudent') : t('inactivateStudent')}</span>
                     </button>
                   </div>
 
                   <div className="space-y-3">
                     <h4 className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                      <Tag className="w-4 h-4 text-blue-500" /> Categorias / Tags do Aluno:
+                      <Tag className="w-4 h-4 text-blue-500" /> {t('studentCategoriesTags')}:
                     </h4>
 
                     <div className="flex flex-wrap gap-2">
@@ -899,11 +899,11 @@ export const TrainerDashboard: React.FC = () => {
                         type="text"
                         value={newTagInput}
                         onChange={(e) => setNewTagInput(e.target.value)}
-                        placeholder="Adicionar nova tag..."
+                        placeholder="Tag..."
                         className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs w-64"
                       />
                       <button onClick={handleAddTag} className="px-4 py-2 rounded-xl bg-blue-600 text-white font-bold">
-                        Adicionar Tag
+                        {t('addTagBtn')}
                       </button>
                     </div>
                   </div>
@@ -913,25 +913,25 @@ export const TrainerDashboard: React.FC = () => {
               {/* TAB 2: PAYMENTS & PIX */}
               {studentDetailTab === 'payments' && (
                 <div className="space-y-4 text-xs">
-                  <h4 className="font-bold text-slate-900 dark:text-white">Mensalidades & Status PIX</h4>
+                  <h4 className="font-bold text-slate-900 dark:text-white">{t('paymentsAndPix')}</h4>
                   
                   {studentPaymentHistory.map((p) => (
                     <div key={p.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4">
                       <div>
                         <span className="font-black text-sm text-slate-900 dark:text-white block">R$ {p.amount.toFixed(2)}</span>
-                        <span className="text-slate-500">Vencimento da Mensalidade: {p.dueDate}</span>
+                        <span className="text-slate-500">{t('dueDate')}: {p.dueDate}</span>
                       </div>
 
                       {p.status === 'PAID' ? (
                         <span className="px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 font-bold text-[11px]">
-                          PAGO ({p.paidAt ? new Date(p.paidAt).toLocaleDateString('pt-BR') : ''})
+                          {t('paid')} ({p.paidAt ? new Date(p.paidAt).toLocaleDateString('pt-BR') : ''})
                         </span>
                       ) : (
                         <button
                           onClick={() => handleMarkPaymentAsPaid(p.id)}
                           className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
                         >
-                          Marcar como PAGO
+                          {t('markAsPaid')}
                         </button>
                       )}
                     </div>
@@ -943,12 +943,12 @@ export const TrainerDashboard: React.FC = () => {
               {studentDetailTab === 'trains' && (
                 <div className="space-y-4 text-xs">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-slate-900 dark:text-white">Lista de Treinos do Aluno</h4>
+                    <h4 className="font-bold text-slate-900 dark:text-white">{t('prescriptionsAndWorkouts')}</h4>
                     <button
                       onClick={handleCreateNewScheduleForStudent}
                       className="px-4 py-2 rounded-xl bg-blue-600 text-white font-bold flex items-center gap-1.5 shadow"
                     >
-                      <Plus className="w-4 h-4" /> Criar Novo Treino
+                      <Plus className="w-4 h-4" /> {t('createNewWorkout')}
                     </button>
                   </div>
 
@@ -961,11 +961,11 @@ export const TrainerDashboard: React.FC = () => {
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                               sched.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
                             }`}>
-                              {sched.active ? 'Ativo' : 'Histórico'}
+                              {sched.active ? t('activeStatus') : t('history')}
                             </span>
                           </div>
                           <span className="text-slate-500 dark:text-slate-400 block mt-0.5">
-                            {sched.objective} • R$ {sched.planPrice || 250.00} • Vencimento do Treino: {sched.targetEndDate || '06/09/2026'}
+                            {sched.objective} • R$ {sched.planPrice || 250.00} • {t('dueDate')}: {sched.targetEndDate || '06/09/2026'}
                           </span>
                         </div>
 
@@ -973,7 +973,7 @@ export const TrainerDashboard: React.FC = () => {
                           onClick={() => handleEditSchedule(sched)}
                           className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center gap-1.5 shadow"
                         >
-                          <Edit2 className="w-4 h-4" /> Editar Treino
+                          <Edit2 className="w-4 h-4" /> {t('editWorkout')}
                         </button>
                       </div>
                     ))}
@@ -990,7 +990,7 @@ export const TrainerDashboard: React.FC = () => {
                 onClick={() => setSelectedStudentDetail(null)}
                 className="px-5 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs"
               >
-                Fechar
+                {t('close')}
               </button>
             </div>
 
@@ -1008,9 +1008,9 @@ export const TrainerDashboard: React.FC = () => {
               <div>
                 <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <Edit2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  <span>Edição de Treino — {editingScheduleData.title}</span>
+                  <span>{t('editWorkout')} — {editingScheduleData.title}</span>
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Edite as seções de treino de forma expansível (Atualiza o treino sem duplicar)</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{t('workoutEditModalSub')}</p>
               </div>
 
               <button
@@ -1025,7 +1025,7 @@ export const TrainerDashboard: React.FC = () => {
             {/* Scrollable Body */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
               
-              {/* SEGMENT 1: UN CROWDED CLEAN LAYOUT FOR GENERAL INFO, DUAL DUE DATES & PRICING */}
+              {/* SEGMENT 1: UNCROWDED CLEAN LAYOUT FOR GENERAL INFO, DUAL DUE DATES & PRICING */}
               <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
                 <button
                   type="button"
@@ -1033,7 +1033,7 @@ export const TrainerDashboard: React.FC = () => {
                   className="w-full p-4 bg-slate-100 dark:bg-slate-950 flex items-center justify-between text-xs font-black text-slate-900 dark:text-white"
                 >
                   <span className="flex items-center gap-2">
-                    <Info className="w-4 h-4 text-blue-600" /> Segmento 1: Info Geral, Preço & Datas de Vencimento
+                    <Info className="w-4 h-4 text-blue-600" /> {t('segment1Title')}
                   </span>
                   {openSegments.seg1 ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
@@ -1044,7 +1044,7 @@ export const TrainerDashboard: React.FC = () => {
                     {/* Row 1: Title & Main Objective */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">Título do Programa</label>
+                        <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t('programTitle')}</label>
                         <input
                           type="text"
                           value={editingScheduleData.title || ''}
@@ -1054,7 +1054,7 @@ export const TrainerDashboard: React.FC = () => {
                       </div>
 
                       <div>
-                        <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">Objetivo Principal</label>
+                        <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t('mainObjective')}</label>
                         <input
                           type="text"
                           value={editingScheduleData.objective || ''}
@@ -1067,7 +1067,7 @@ export const TrainerDashboard: React.FC = () => {
                     {/* Row 2: Target Date, Payment Due Date, Price */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
-                        <label className="block font-bold text-amber-600 dark:text-amber-400 mb-1.5">Vencimento do Treino (Target Date)</label>
+                        <label className="block font-bold text-amber-600 dark:text-amber-400 mb-1.5">{t('workoutTargetDate')}</label>
                         <input
                           type="date"
                           value={editingScheduleData.targetEndDate || '2026-09-06'}
@@ -1077,7 +1077,7 @@ export const TrainerDashboard: React.FC = () => {
                       </div>
 
                       <div>
-                        <label className="block font-bold text-rose-600 dark:text-rose-400 mb-1.5">Vencimento da Mensalidade (PIX)</label>
+                        <label className="block font-bold text-rose-600 dark:text-rose-400 mb-1.5">{t('paymentDueDateLabel')}</label>
                         <input
                           type="date"
                           value={editingScheduleData.paymentDueDate || '2026-09-10'}
@@ -1087,7 +1087,7 @@ export const TrainerDashboard: React.FC = () => {
                       </div>
 
                       <div>
-                        <label className="block font-bold text-emerald-600 dark:text-emerald-400 mb-1.5">Preço do Treino (R$)</label>
+                        <label className="block font-bold text-emerald-600 dark:text-emerald-400 mb-1.5">{t('workoutPrice')}</label>
                         <input
                           type="number"
                           value={editingScheduleData.planPrice || 250.00}
@@ -1099,7 +1099,7 @@ export const TrainerDashboard: React.FC = () => {
 
                     {/* Row 3: Description & Rationale */}
                     <div>
-                      <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">Descrição & Racional de Treino</label>
+                      <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t('descriptionRationale')}</label>
                       <textarea
                         rows={2}
                         value={editingScheduleData.description || ''}
@@ -1120,7 +1120,7 @@ export const TrainerDashboard: React.FC = () => {
                   className="w-full p-4 bg-slate-100 dark:bg-slate-950 flex items-center justify-between text-xs font-black text-slate-900 dark:text-white"
                 >
                   <span className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-blue-600" /> Segmento 2: Matriz Semanal ("Sua Semana")
+                    <Calendar className="w-4 h-4 text-blue-600" /> {t('segment2Title')}
                   </span>
                   {openSegments.seg2 ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
@@ -1133,7 +1133,7 @@ export const TrainerDashboard: React.FC = () => {
                         <input
                           type="text"
                           value={m.morningSlot || ''}
-                          placeholder="Manhã"
+                          placeholder="Manhã / Morning"
                           onChange={(e) => {
                             const updated = [...editingScheduleData.weeklyMatrix];
                             updated[mIdx].morningSlot = e.target.value;
@@ -1144,7 +1144,7 @@ export const TrainerDashboard: React.FC = () => {
                         <input
                           type="text"
                           value={m.eveningSlot || ''}
-                          placeholder="Noite"
+                          placeholder="Noite / Evening"
                           onChange={(e) => {
                             const updated = [...editingScheduleData.weeklyMatrix];
                             updated[mIdx].eveningSlot = e.target.value;
@@ -1166,7 +1166,7 @@ export const TrainerDashboard: React.FC = () => {
                   className="w-full p-4 bg-slate-100 dark:bg-slate-950 flex items-center justify-between text-xs font-black text-slate-900 dark:text-white"
                 >
                   <span className="flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-blue-600" /> Segmento 4: Rotinas de Força Diárias (Colapsáveis & Exclusão)
+                    <Layers className="w-4 h-4 text-blue-600" /> {t('segment4Title')}
                   </span>
                   {openSegments.seg4 ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
@@ -1174,7 +1174,7 @@ export const TrainerDashboard: React.FC = () => {
                 {openSegments.seg4 && (
                   <div className="p-4 space-y-4 text-xs bg-white dark:bg-slate-900">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-700 dark:text-slate-300">Rotinas de Força ({editingScheduleData.workouts?.length || 0})</span>
+                      <span className="font-bold text-slate-700 dark:text-slate-300">{t('workouts')} ({editingScheduleData.workouts?.length || 0})</span>
                       <button
                         type="button"
                         onClick={() => {
@@ -1192,7 +1192,7 @@ export const TrainerDashboard: React.FC = () => {
                         }}
                         className="px-3 py-1.5 rounded-lg bg-blue-600 text-white font-bold text-xs shadow"
                       >
-                        + Adicionar Rotina
+                        {t('addRoutine')}
                       </button>
                     </div>
 
@@ -1227,7 +1227,7 @@ export const TrainerDashboard: React.FC = () => {
                               onClick={() => handleDeleteRoutine(wIdx)}
                               className="px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950 hover:bg-rose-100 text-rose-600 dark:text-rose-400 font-bold text-[11px] flex items-center gap-1 border border-rose-200 dark:border-rose-800"
                             >
-                              <Trash2 className="w-3.5 h-3.5" /> Excluir Rotina
+                              <Trash2 className="w-3.5 h-3.5" /> {t('deleteRoutine')}
                             </button>
                           </div>
 
@@ -1238,14 +1238,14 @@ export const TrainerDashboard: React.FC = () => {
                                   
                                   <div className="flex items-center justify-between bg-blue-50/60 dark:bg-blue-950/40 p-2 rounded-lg border border-blue-200 dark:border-blue-800/60">
                                     <span className="font-bold text-[11px] text-blue-700 dark:text-blue-300 flex items-center gap-1">
-                                      <Download className="w-3.5 h-3.5" /> Importar do Banco:
+                                      <Download className="w-3.5 h-3.5" /> {t('importFromBank')}
                                     </span>
                                     <select
                                       onChange={(e) => handleImportExerciseFromBank(wIdx, exIdx, e.target.value)}
                                       defaultValue=""
                                       className="px-2.5 py-1 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white font-semibold text-[11px]"
                                     >
-                                      <option value="" disabled>-- Selecionar Exercício Cadastrado --</option>
+                                      <option value="" disabled>{t('selectBankExercise')}</option>
                                       {exercises.map((bEx) => (
                                         <option key={bEx.id} value={bEx.id}>
                                           {bEx.name} ({bEx.category})
@@ -1258,7 +1258,7 @@ export const TrainerDashboard: React.FC = () => {
                                     <input
                                       type="text"
                                       value={ex.name}
-                                      placeholder="Nome do Exercício"
+                                      placeholder="Nome / Name"
                                       onChange={(e) => {
                                         const updated = [...editingScheduleData.workouts];
                                         updated[wIdx].exercises[exIdx].name = e.target.value;
@@ -1270,7 +1270,7 @@ export const TrainerDashboard: React.FC = () => {
                                     <input
                                       type="text"
                                       value={ex.setsReps}
-                                      placeholder="Séries x Repet"
+                                      placeholder={t('setsReps')}
                                       onChange={(e) => {
                                         const updated = [...editingScheduleData.workouts];
                                         updated[wIdx].exercises[exIdx].setsReps = e.target.value;
@@ -1282,7 +1282,7 @@ export const TrainerDashboard: React.FC = () => {
                                     <input
                                       type="text"
                                       value={ex.notes || ''}
-                                      placeholder="Instruções / Obs"
+                                      placeholder={t('notes')}
                                       onChange={(e) => {
                                         const updated = [...editingScheduleData.workouts];
                                         updated[wIdx].exercises[exIdx].notes = e.target.value;
@@ -1294,7 +1294,7 @@ export const TrainerDashboard: React.FC = () => {
                                     <input
                                       type="text"
                                       value={ex.gifUrl || ''}
-                                      placeholder="URL do GIF"
+                                      placeholder="URL GIF"
                                       onChange={(e) => {
                                         const updated = [...editingScheduleData.workouts];
                                         updated[wIdx].exercises[exIdx].gifUrl = e.target.value;
@@ -1309,7 +1309,7 @@ export const TrainerDashboard: React.FC = () => {
                                         onClick={() => handleDeleteExerciseFromRoutine(wIdx, exIdx)}
                                         className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950 font-bold text-xs flex items-center gap-1"
                                       >
-                                        <X className="w-4 h-4" /> Excluir
+                                        <X className="w-4 h-4" /> {t('deleteExercise')}
                                       </button>
                                     </div>
                                   </div>
@@ -1326,7 +1326,7 @@ export const TrainerDashboard: React.FC = () => {
                                 }}
                                 className="text-blue-600 dark:text-blue-400 font-bold text-[11px] hover:underline block pt-1"
                               >
-                                + Adicionar Exercício nesta Rotina
+                                {t('addExerciseInRoutine')}
                               </button>
                             </div>
                           )}
@@ -1347,14 +1347,14 @@ export const TrainerDashboard: React.FC = () => {
                 onClick={() => setEditingScheduleData(null)}
                 className="px-5 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs"
               >
-                Cancelar
+                {t('cancel')}
               </button>
               <button
                 type="button"
                 onClick={handleSaveScheduleChanges}
                 className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs shadow-lg shadow-blue-600/30 flex items-center gap-2"
               >
-                <Save className="w-4 h-4" /> Salvar Prescrição Completa
+                <Save className="w-4 h-4" /> {t('saveCompletePrescription')}
               </button>
             </div>
 
@@ -1367,11 +1367,11 @@ export const TrainerDashboard: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
           <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 space-y-4 text-xs shadow-2xl">
             <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
-              {editingExId ? 'Editar Exercício' : 'Cadastrar Exercício no Banco com GIF'}
+              {editingExId ? t('editExerciseInBank') : t('registerExerciseInBank')}
             </h3>
             <form onSubmit={handleSaveExerciseToBank} className="space-y-3">
               <div>
-                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">Nome do Exercício</label>
+                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">Nome / Name</label>
                 <input
                   type="text"
                   value={exName}
@@ -1383,7 +1383,7 @@ export const TrainerDashboard: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">Categoria</label>
+                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">Categoria / Category</label>
                 <input
                   type="text"
                   value={exCategory}
@@ -1394,7 +1394,7 @@ export const TrainerDashboard: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">Grupo Muscular / Instruções</label>
+                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">{t('muscleGroup')}</label>
                 <input
                   type="text"
                   value={exMuscle}
@@ -1405,7 +1405,7 @@ export const TrainerDashboard: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">URL do GIF de Demonstração</label>
+                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">{t('gifUrlLabel')}</label>
                 <input
                   type="text"
                   value={exGifUrl}
@@ -1417,10 +1417,10 @@ export const TrainerDashboard: React.FC = () => {
 
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setShowExModal(false)} className="px-3 py-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl">
-                  Cancelar
+                  {t('cancel')}
                 </button>
                 <button type="submit" className="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl shadow">
-                  Salvar
+                  {t('save')}
                 </button>
               </div>
             </form>

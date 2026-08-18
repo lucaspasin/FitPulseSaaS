@@ -156,8 +156,8 @@ export const StudentApp: React.FC = () => {
           <div className="flex items-center gap-3 text-rose-400">
             <Lock className="w-8 h-8 shrink-0" />
             <div>
-              <h2 className="text-xl font-black">Acesso Bloqueado por Pendência Financeira</h2>
-              <p className="text-xs text-rose-200">Você possui <strong>{unpaidCount} mensalidades em aberto</strong>. Realize o pagamento via PIX para liberar o seu treino.</p>
+              <h2 className="text-xl font-black">{t('accessBlockedTitle')}</h2>
+              <p className="text-xs text-rose-200">{t('accessBlockedSub').replace('{0}', String(unpaidCount))}</p>
             </div>
           </div>
 
@@ -215,7 +215,7 @@ export const StudentApp: React.FC = () => {
             <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs shadow-sm">
               <span className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                 <Archive className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                <span>Ver Treinos Anteriores:</span>
+                <span>{t('viewPreviousWorkouts')}</span>
               </span>
 
               <select
@@ -228,7 +228,7 @@ export const StudentApp: React.FC = () => {
               >
                 {allSchedules.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.title} ({s.active ? 'Ativo' : 'Finalizado'})
+                    {s.title} ({s.active ? t('activeStatus') : t('history')})
                   </option>
                 ))}
               </select>
@@ -266,7 +266,7 @@ export const StudentApp: React.FC = () => {
                         </span>
                       </div>
                       <p className="text-slate-700 dark:text-slate-300">
-                        <strong>Exercícios concluídos:</strong> {log.completedExercises.join(', ') || 'Todos'}
+                        <strong>{t('exercises')}:</strong> {log.completedExercises.join(', ') || 'All'}
                       </p>
                     </div>
                   ))}

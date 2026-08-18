@@ -37,7 +37,7 @@ export const PixPaymentWidget: React.FC<PixPaymentWidgetProps> = ({
           </div>
           <div>
             <h3 className="font-bold text-base text-white">{t('payment')}</h3>
-            <p className="text-xs text-slate-400">Mensalidade do Treinador via PIX</p>
+            <p className="text-xs text-slate-400">PIX</p>
           </div>
         </div>
 
@@ -116,7 +116,7 @@ export const PixPaymentWidget: React.FC<PixPaymentWidgetProps> = ({
             ) : (
               <>
                 <Copy className="w-3.5 h-3.5" />
-                <span>{t('copyLink')}</span>
+                <span>{t('copyPixKeyBtn')}</span>
               </>
             )}
           </button>
@@ -133,7 +133,7 @@ export const PixPaymentWidget: React.FC<PixPaymentWidgetProps> = ({
           />
         </div>
         <p className="text-[11px] text-slate-400 text-center max-w-xs">
-          Escaneie o QR Code no seu aplicativo do banco para efetuar o pagamento diretamente ao treinador.
+          {t('scanQrCodeDesc')}
         </p>
       </div>
 
