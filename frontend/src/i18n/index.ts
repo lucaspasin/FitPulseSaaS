@@ -132,6 +132,15 @@ export const translations: Record<Language, Record<string, string>> = {
     logoUrlLabel: 'URL do Logo',
     bannerUrlLabel: 'URL do Banner',
 
+    // Admin Inspector Modals
+    gymsInspectorTitle: 'Inspeção de Academias Ativas (Whitelabel Tenants)',
+    trainersInspectorTitle: 'Inspeção de Treinadores Ativos da Plataforma',
+    studentsInspectorTitle: 'Inspeção de Alunos Cadastrados na Plataforma',
+    assignedGym: 'Academia Vinculada',
+    assignedTrainer: 'Treinador Responsável',
+    resendInvite: 'Reenviar Convite',
+    clickToInspect: 'Clique para Inspecionar',
+
     // Student App & Access Blocking
     accessBlockedTitle: 'Acesso Bloqueado por Pendência Financeira',
     accessBlockedSub: 'Você possui {0} mensalidades em aberto. Realize o pagamento via PIX para liberar o seu treino.',
@@ -273,6 +282,15 @@ export const translations: Record<Language, Record<string, string>> = {
     slugUrlLabel: 'Slug URL',
     logoUrlLabel: 'Logo URL',
     bannerUrlLabel: 'Banner URL',
+
+    // Admin Inspector Modals
+    gymsInspectorTitle: 'Active Gyms Inspection (Whitelabel Tenants)',
+    trainersInspectorTitle: 'Active Platform Trainers Inspection',
+    studentsInspectorTitle: 'Registered Platform Students Inspection',
+    assignedGym: 'Assigned Gym',
+    assignedTrainer: 'Assigned Trainer',
+    resendInvite: 'Resend Invite',
+    clickToInspect: 'Click to Inspect',
 
     // Student App & Access Blocking
     accessBlockedTitle: 'Access Blocked due to Financial Overdue',

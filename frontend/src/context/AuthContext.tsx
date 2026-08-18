@@ -26,11 +26,15 @@ interface AuthContextType {
   token: string | null;
   gym: Gym | null;
   originalLoginRole: 'ADMIN' | 'TRAINER' | 'STUDENT' | null;
+  trainersList: User[];
+  studentsList: User[];
   login: (email: string, pass: string) => Promise<void>;
   register: (name: string, email: string, pass: string, inviteCode?: string) => Promise<void>;
   logout: () => void;
   setGym: (gym: Gym) => void;
   switchDemoRole: (role: 'ADMIN' | 'TRAINER' | 'STUDENT') => Promise<void>;
+  selectTrainerUser: (trainer: User) => void;
+  selectStudentUser: (student: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -90,6 +94,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [originalLoginRole, setOriginalLoginRole] = useState<'ADMIN' | 'TRAINER' | 'STUDENT' | null>(() => {
     return (localStorage.getItem('fitpulse_orig_role') as any) || null;
   });
+
+  const [trainersList, setTrainersList] = useState<User[]>([]);
+  const [studentsList, setStudentsList] = useState<User[]>([]);
+
+  // Load trainers and students list from storage or API
+  const refreshUserLists = async () => {
+    const localUsers = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
+    
+    // Merge defaults
+    const combined = [...Object.values(DEFAULT_MOCK_USERS)];
+    localUsers.forEach((u: any) => {
+      if (!combined.some(c => c.id === u.id || c.email === u.email)) {
+        combined.push(u);
+      }
+    });
+
+    setTrainersList(combined.filter(u => u.role === 'TRAINER'));
+    setStudentsList(combined.filter(u => u.role === 'STUDENT'));
+  };
+
+  useEffect(() => {
+    refreshUserLists();
+  }, [user]);
 
   // Apply whitelabel CSS custom properties when gym changes
   useEffect(() => {
@@ -229,8 +256,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const selectTrainerUser = (trainer: User) => {
+    const currentOrig = originalLoginRole;
+    setUser(trainer);
+    localStorage.setItem('fitpulse_user', JSON.stringify(trainer));
+    if (currentOrig === 'ADMIN') {
+      setOriginalLoginRole('ADMIN');
+      localStorage.setItem('fitpulse_orig_role', 'ADMIN');
+    }
+  };
+
+  const selectStudentUser = (student: User) => {
+    const currentOrig = originalLoginRole;
+    setUser(student);
+    localStorage.setItem('fitpulse_user', JSON.stringify(student));
+    if (currentOrig === 'ADMIN') {
+      setOriginalLoginRole('ADMIN');
+      localStorage.setItem('fitpulse_orig_role', 'ADMIN');
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, gym, originalLoginRole, login, register, logout, setGym, switchDemoRole }}>
+    <AuthContext.Provider value={{
+      user,
+      token,
+      gym,
+      originalLoginRole,
+      trainersList,
+      studentsList,
+      login,
+      register,
+      logout,
+      setGym,
+      switchDemoRole,
+      selectTrainerUser,
+      selectStudentUser
+    }}>
       {children}
     </AuthContext.Provider>
   );
