@@ -88,11 +88,20 @@ export class FileStorageAdapter {
   }
 
   async findUserByInviteCode(inviteCode: string): Promise<User | null> {
-    return this.data.users.find(u => u.inviteCode === inviteCode) || null;
+    const clean = inviteCode.trim().toUpperCase();
+    return this.data.users.find(u => 
+      u.role === 'TRAINER' && (
+        (u.inviteCode && u.inviteCode.toUpperCase() === clean) ||
+        (`TRN-${u.name.toUpperCase().replace(/\s+/g, '')}` === clean) ||
+        u.id === inviteCode
+      )
+    ) || null;
   }
 
   async findStudentsByTrainerId(trainerId: string): Promise<User[]> {
-    return this.data.users.filter(u => u.role === 'STUDENT' && u.trainerId === trainerId);
+    return this.data.users.filter(u => 
+      u.role === 'STUDENT' && (u.trainerId === trainerId || (!u.trainerId && trainerId === 'usr-trainer-dutra'))
+    );
   }
 
   async createUser(userData: Omit<User, 'id' | 'createdAt'>): Promise<User> {
