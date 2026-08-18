@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext.js';
+import { useAuth, Gym } from '../context/AuthContext.js';
 import { useLanguage } from '../context/LanguageContext.js';
 import {
   UserCheck,
@@ -34,22 +34,26 @@ import {
   UserCheck as UserCheckIcon,
   Download,
   Info,
+  Building2,
   TrendingUp,
   Activity,
   HeartPulse
 } from 'lucide-react';
 
 export const TrainerDashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { user, updateUserGymAffiliation } = useAuth();
   const { t } = useLanguage();
 
   const [activeSubTab, setActiveSubTab] = useState<'students' | 'expiringWorkout' | 'expiringPayment' | 'exercises' | 'pixSettings'>('students');
   
   const [students, setStudents] = useState<any[]>([]);
   const [exercises, setExercises] = useState<any[]>([]);
+  const [gymsList, setGymsList] = useState<Gym[]>([]);
+  const [selectedGymAffiliation, setSelectedGymAffiliation] = useState<string>(user?.gymId || '');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const [inviteCode] = useState(user?.inviteCode || 'TRN-DUTRA12');
+  // Dynamically compute invite code for the currently active coach
+  const inviteCode = user?.inviteCode || (user ? `TRN-${user.name.toUpperCase().replace(/\s+/g, '')}` : 'TRN-DUTRA12');
   const [copiedLink, setCopiedLink] = useState(false);
 
   // Selected Student Management Drawer state
@@ -109,7 +113,9 @@ export const TrainerDashboard: React.FC = () => {
     }
 
     const localUsers = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
-    const studentList = localUsers.filter((u: any) => u.role === 'STUDENT');
+    const studentList = localUsers.filter((u: any) => 
+      u.role === 'STUDENT' && (u.trainerId === user.id || (!u.trainerId && user.id === 'usr-trainer-dutra'))
+    );
     setStudents(studentList);
   };
 
@@ -127,12 +133,22 @@ export const TrainerDashboard: React.FC = () => {
     }
 
     const localEx = JSON.parse(localStorage.getItem('fitpulse_exercises') || '[]');
-    setExercises(localEx);
+    const exList = localEx.filter((e: any) => !e.trainerId || e.trainerId === user.id || user.id === 'usr-trainer-dutra');
+    setExercises(exList);
+  };
+
+  const fetchGyms = async () => {
+    const localGyms = JSON.parse(localStorage.getItem('fitpulse_gyms') || '[]');
+    setGymsList(localGyms);
   };
 
   useEffect(() => {
     fetchStudents();
     fetchExercises();
+    fetchGyms();
+    if (user) {
+      setSelectedGymAffiliation(user.gymId || '');
+    }
   }, [user]);
 
   const handleCopyReferral = () => {
@@ -140,6 +156,13 @@ export const TrainerDashboard: React.FC = () => {
     navigator.clipboard.writeText(link);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2500);
+  };
+
+  const handleSaveProfileSettings = () => {
+    if (user) {
+      updateUserGymAffiliation(user.id, selectedGymAffiliation || undefined);
+    }
+    alert(t('save'));
   };
 
   const filteredStudents = students.filter((st) => {
@@ -208,7 +231,7 @@ export const TrainerDashboard: React.FC = () => {
     const updatedUsers = localUsers.map((u: any) => u.id === selectedStudentDetail.id ? { ...u, status: newStatus } : u);
     localStorage.setItem('fitpulse_users', JSON.stringify(updatedUsers));
     setSelectedStudentDetail({ ...selectedStudentDetail, status: newStatus });
-    setStudents(updatedUsers.filter((u: any) => u.role === 'STUDENT'));
+    setStudents(updatedUsers.filter((u: any) => u.role === 'STUDENT' && (u.trainerId === user?.id || (!u.trainerId && user?.id === 'usr-trainer-dutra'))));
   };
 
   const handleAddTag = async () => {
@@ -237,7 +260,7 @@ export const TrainerDashboard: React.FC = () => {
     localStorage.setItem('fitpulse_users', JSON.stringify(updatedUsers));
     setSelectedStudentDetail({ ...selectedStudentDetail, tags: updatedTags });
     setNewTagInput('');
-    setStudents(updatedUsers.filter((u: any) => u.role === 'STUDENT'));
+    setStudents(updatedUsers.filter((u: any) => u.role === 'STUDENT' && (u.trainerId === user?.id || (!u.trainerId && user?.id === 'usr-trainer-dutra'))));
   };
 
   const handleRemoveTag = async (tagToRemove: string) => {
@@ -263,7 +286,7 @@ export const TrainerDashboard: React.FC = () => {
     const updatedUsers = localUsers.map((u: any) => u.id === selectedStudentDetail.id ? { ...u, tags: updatedTags } : u);
     localStorage.setItem('fitpulse_users', JSON.stringify(updatedUsers));
     setSelectedStudentDetail({ ...selectedStudentDetail, tags: updatedTags });
-    setStudents(updatedUsers.filter((u: any) => u.role === 'STUDENT'));
+    setStudents(updatedUsers.filter((u: any) => u.role === 'STUDENT' && (u.trainerId === user?.id || (!u.trainerId && user?.id === 'usr-trainer-dutra'))));
   };
 
   const handleMarkPaymentAsPaid = async (paymentId: string) => {
@@ -491,7 +514,7 @@ export const TrainerDashboard: React.FC = () => {
             <UserCheck className="w-8 h-8" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-black">{t('trainerBackoffice')}</h1>
+            <h1 className="text-xl sm:text-2xl font-black">{t('trainerBackoffice')} — {user?.name}</h1>
             <p className="text-xs text-blue-200 font-medium">{t('trainerSubtagline')}</p>
           </div>
         </div>
@@ -524,7 +547,7 @@ export const TrainerDashboard: React.FC = () => {
           }`}
         >
           <AlertTriangle className="w-4 h-4 text-amber-300" />
-          <span>{t('expiringWorkouts')} (1)</span>
+          <span>{t('expiringWorkouts')} ({students.length > 0 ? 1 : 0})</span>
         </button>
 
         <button
@@ -534,7 +557,7 @@ export const TrainerDashboard: React.FC = () => {
           }`}
         >
           <CreditCard className="w-4 h-4 text-rose-300" />
-          <span>{t('expiringPayments')} (1)</span>
+          <span>{t('expiringPayments')} ({students.length > 0 ? 1 : 0})</span>
         </button>
 
         <button
@@ -578,37 +601,49 @@ export const TrainerDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredStudents.map((st) => (
-              <div
-                key={st.id}
-                onClick={() => handleOpenStudentDetail(st)}
-                className="p-5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm hover:border-blue-500 dark:hover:border-blue-400 cursor-pointer transition-all hover:scale-[1.01]"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-extrabold text-base text-slate-900 dark:text-white group-hover:text-blue-600">{st.name}</h3>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">{st.email}</span>
-                  </div>
-                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
-                    st.status === 'INACTIVE'
-                      ? 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400 border border-rose-300 dark:border-rose-800'
-                      : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800'
-                  }`}>
-                    {st.status === 'INACTIVE' ? t('inactiveStatus') : t('activeStatus')}
-                  </span>
-                </div>
-
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {(st.tags || []).map((tg: string, i: number) => (
-                    <span key={i} className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-blue-700 dark:text-blue-300 text-[11px] font-medium">
-                      {tg}
+          {filteredStudents.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredStudents.map((st) => (
+                <div
+                  key={st.id}
+                  onClick={() => handleOpenStudentDetail(st)}
+                  className="p-5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 space-y-3 shadow-sm hover:border-blue-500 dark:hover:border-blue-400 cursor-pointer transition-all hover:scale-[1.01]"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="font-extrabold text-base text-slate-900 dark:text-white group-hover:text-blue-600">{st.name}</h3>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">{st.email}</span>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                      st.status === 'INACTIVE'
+                        ? 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400 border border-rose-300 dark:border-rose-800'
+                        : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800'
+                    }`}>
+                      {st.status === 'INACTIVE' ? t('inactiveStatus') : t('activeStatus')}
                     </span>
-                  ))}
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {(st.tags || []).map((tg: string, i: number) => (
+                      <span key={i} className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-blue-700 dark:text-blue-300 text-[11px] font-medium">
+                        {tg}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-8 rounded-3xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 text-center space-y-3 shadow-sm">
+              <Users className="w-10 h-10 text-slate-400 mx-auto" />
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                Nenhum aluno vinculado a {user?.name} ainda.
+              </p>
+              <p className="text-xs text-slate-500">
+                Compartilhe o seu link de indicação (<span className="font-mono text-blue-500">{inviteCode}</span>) com seus alunos.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -751,7 +786,7 @@ export const TrainerDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* SUB TAB 5: PERFIL PIX DO TREINADOR */}
+      {/* SUB TAB 5: PERFIL PIX & CONFIGURAÇÕES DO TREINADOR */}
       {activeSubTab === 'pixSettings' && (
         <div className="p-6 rounded-3xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 space-y-6 shadow-sm max-w-xl mx-auto">
           <div className="flex items-center gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
@@ -760,11 +795,32 @@ export const TrainerDashboard: React.FC = () => {
             </div>
             <div>
               <h3 className="font-black text-lg text-slate-900 dark:text-white">{t('pixBillingProfileTitle')}</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Configure sua Chave PIX padrão enviada aos alunos</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Configure sua Chave PIX e vinculação de Academia</p>
             </div>
           </div>
 
           <div className="space-y-4 text-xs">
+            
+            {/* Gym Affiliation Selector */}
+            <div className="p-4 rounded-2xl bg-blue-50/60 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 space-y-2">
+              <label className="block text-slate-900 dark:text-white font-black flex items-center gap-1.5">
+                <Building2 className="w-4 h-4 text-blue-500" /> Vinculação de Academia (Whitelabel)
+              </label>
+              <select
+                value={selectedGymAffiliation}
+                onChange={(e) => setSelectedGymAffiliation(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white font-semibold"
+              >
+                <option value="">Independente (Coach Avulso / Sem Academia)</option>
+                {gymsList.map((g) => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+              <span className="text-[11px] text-slate-500 block">
+                Treinadores independentes usam a identidade FitPulse padrão. Treinadores vinculados a uma academia aplicam a marca e cores whitelabel do tenant.
+              </span>
+            </div>
+
             <div>
               <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">{t('pixKeyTypeLabel')}</label>
               <select
@@ -792,7 +848,7 @@ export const TrainerDashboard: React.FC = () => {
 
             <div className="pt-2 flex justify-end">
               <button
-                onClick={() => alert(t('save'))}
+                onClick={handleSaveProfileSettings}
                 className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold shadow-lg shadow-emerald-600/30 flex items-center gap-2"
               >
                 <Save className="w-4 h-4" /> {t('savePixProfile')}

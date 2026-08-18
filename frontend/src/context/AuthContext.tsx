@@ -5,7 +5,7 @@ export interface User {
   name: string;
   email: string;
   role: 'ADMIN' | 'TRAINER' | 'STUDENT';
-  gymId: string;
+  gymId?: string;
   trainerId?: string;
   inviteCode?: string;
   tags?: string[];
@@ -31,10 +31,11 @@ interface AuthContextType {
   login: (email: string, pass: string) => Promise<void>;
   register: (name: string, email: string, pass: string, inviteCode?: string) => Promise<void>;
   logout: () => void;
-  setGym: (gym: Gym) => void;
+  setGym: (gym: Gym | null) => void;
   switchDemoRole: (role: 'ADMIN' | 'TRAINER' | 'STUDENT') => Promise<void>;
   selectTrainerUser: (trainer: User) => void;
   selectStudentUser: (student: User) => void;
+  updateUserGymAffiliation: (userId: string, gymId?: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -98,7 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [trainersList, setTrainersList] = useState<User[]>([]);
   const [studentsList, setStudentsList] = useState<User[]>([]);
 
-  // Load trainers and students list from storage or API
+  // Load trainers and students list from storage
   const refreshUserLists = async () => {
     const localUsers = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
     
@@ -123,12 +124,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (gym) {
       document.documentElement.style.setProperty('--brand-primary', gym.primaryColor || '#0f172a');
       document.documentElement.style.setProperty('--brand-secondary', gym.secondaryColor || '#2563eb');
+    } else {
+      document.documentElement.style.setProperty('--brand-primary', '#0f172a');
+      document.documentElement.style.setProperty('--brand-secondary', '#2563eb');
     }
   }, [gym]);
 
-  const setGym = (newGym: Gym) => {
+  const setGym = (newGym: Gym | null) => {
     setGymState(newGym);
-    localStorage.setItem('fitpulse_gym', JSON.stringify(newGym));
+    if (newGym) {
+      localStorage.setItem('fitpulse_gym', JSON.stringify(newGym));
+    } else {
+      localStorage.removeItem('fitpulse_gym');
+    }
+  };
+
+  const syncGymForUser = (targetUser: User | null) => {
+    if (!targetUser || !targetUser.gymId || targetUser.gymId === 'independent') {
+      setGym(null);
+      return;
+    }
+    const localGyms: Gym[] = JSON.parse(localStorage.getItem('fitpulse_gyms') || '[]');
+    const matched = localGyms.find(g => g.id === targetUser.gymId);
+    if (matched) {
+      setGym(matched);
+    } else if (targetUser.gymId === 'gym-dutra12') {
+      setGym(DEMO_GYM);
+    } else {
+      setGym(null);
+    }
   };
 
   const login = async (email: string, pass: string) => {
@@ -172,7 +196,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (matchedUser) {
       setUser(matchedUser);
       setToken('mock-jwt-token-azure-static');
-      setGym(DEMO_GYM);
+      syncGymForUser(matchedUser);
       setOriginalLoginRole(matchedUser.role);
       localStorage.setItem('fitpulse_user', JSON.stringify(matchedUser));
       localStorage.setItem('fitpulse_token', 'mock-jwt-token-azure-static');
@@ -205,21 +229,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn('Using client-side registration fallback:', err);
     }
 
+    // Dynamic Trainer lookup by inviteCode
+    const localUsers = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
+    const allTrainers = [...Object.values(DEFAULT_MOCK_USERS), ...localUsers].filter((u: any) => u.role === 'TRAINER');
+    const matchedTrainer = inviteCode ? allTrainers.find((u: any) => 
+      u.inviteCode?.toUpperCase() === inviteCode.toUpperCase() || 
+      `TRN-${u.name.toUpperCase().replace(/\s+/g, '')}` === inviteCode.toUpperCase()
+    ) : null;
+
+    const assignedTrainerId = matchedTrainer ? matchedTrainer.id : 'usr-trainer-dutra';
+
     const newSt: User = {
       id: `usr-${Date.now()}`,
       name,
       email,
       role: 'STUDENT',
-      gymId: 'gym-dutra12',
-      trainerId: 'usr-trainer-dutra'
+      gymId: matchedTrainer ? matchedTrainer.gymId : undefined,
+      trainerId: assignedTrainerId
     };
 
-    const localUsers = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
     localStorage.setItem('fitpulse_users', JSON.stringify([...localUsers, newSt]));
 
     setUser(newSt);
     setToken('mock-jwt-token-azure-static');
-    setGym(DEMO_GYM);
+    syncGymForUser(newSt);
     setOriginalLoginRole('STUDENT');
     localStorage.setItem('fitpulse_user', JSON.stringify(newSt));
     localStorage.setItem('fitpulse_token', 'mock-jwt-token-azure-static');
@@ -259,6 +292,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const selectTrainerUser = (trainer: User) => {
     const currentOrig = originalLoginRole;
     setUser(trainer);
+    syncGymForUser(trainer);
     localStorage.setItem('fitpulse_user', JSON.stringify(trainer));
     if (currentOrig === 'ADMIN') {
       setOriginalLoginRole('ADMIN');
@@ -269,11 +303,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const selectStudentUser = (student: User) => {
     const currentOrig = originalLoginRole;
     setUser(student);
+    syncGymForUser(student);
     localStorage.setItem('fitpulse_user', JSON.stringify(student));
     if (currentOrig === 'ADMIN') {
       setOriginalLoginRole('ADMIN');
       localStorage.setItem('fitpulse_orig_role', 'ADMIN');
     }
+  };
+
+  const updateUserGymAffiliation = (userId: string, gymId?: string) => {
+    const localUsers = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
+    let userToUpdate = localUsers.find((u: any) => u.id === userId);
+
+    if (userToUpdate) {
+      userToUpdate.gymId = gymId;
+      localStorage.setItem('fitpulse_users', JSON.stringify(localUsers));
+    }
+
+    if (user && user.id === userId) {
+      const updated = { ...user, gymId };
+      setUser(updated);
+      syncGymForUser(updated);
+      localStorage.setItem('fitpulse_user', JSON.stringify(updated));
+    }
+
+    refreshUserLists();
   };
 
   return (
@@ -290,7 +344,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setGym,
       switchDemoRole,
       selectTrainerUser,
-      selectStudentUser
+      selectStudentUser,
+      updateUserGymAffiliation
     }}>
       {children}
     </AuthContext.Provider>
