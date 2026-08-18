@@ -44,6 +44,16 @@ export const SEED_USERS: User[] = [
     createdAt: new Date().toISOString()
   },
   {
+    id: 'usr-trainer-lucas',
+    email: 'coach.lucas@fitpulse.com',
+    passwordHash: 'trainer123',
+    name: 'Coach Lucas',
+    role: 'TRAINER',
+    gymId: 'gym-ironfit',
+    inviteCode: 'TRN-LUCASPASIN',
+    createdAt: new Date().toISOString()
+  },
+  {
     id: 'usr-student-lucas',
     email: 'lucas@pasin.com',
     passwordHash: 'student123',
@@ -130,7 +140,7 @@ export const SEED_LUCAS_PASIN_SCHEDULE: Schedule = {
       id: 'w-1',
       title: 'Força 1 — Segunda (Upper Push)',
       exercises: [
-        { name: 'Supino reto', setsReps: '4x8-10', notes: 'Carga progressiva', gifUrl: SEED_EXERCISES[0].gifUrl },
+        { name: 'Supino reto', setsReps: '4x8-10', notes: 'Carga progressiva', gifUrl: 'https://upload.wikimedia.org/wikipedia/commons/4/4e/Bench-press-1.gif' },
         { name: 'Desenvolvimento Arnold', setsReps: '3x8-10', notes: 'Rotação fluida de punho' },
         { name: 'Elevação lateral', setsReps: '3x12-15', notes: 'Foco no deltoide médio' },
         { name: 'Tríceps corda', setsReps: '3x10-12', notes: 'Pico de contração de 1s' },
@@ -142,7 +152,7 @@ export const SEED_LUCAS_PASIN_SCHEDULE: Schedule = {
       id: 'w-2',
       title: 'Força 2 — Terça (Pernas pesado)',
       exercises: [
-        { name: 'Agachamento livre', setsReps: '4x6-8', notes: 'Pernas pesado', gifUrl: SEED_EXERCISES[1].gifUrl },
+        { name: 'Agachamento livre', setsReps: '4x6-8', notes: 'Pernas pesado', gifUrl: 'https://upload.wikimedia.org/wikipedia/commons/8/82/Squats.gif' },
         { name: 'Leg press', setsReps: '3x10-12', notes: 'Foco em quadríceps' },
         { name: 'Cadeira extensora unilateral', setsReps: '3x12-15', notes: 'Isometria no topo' },
         { name: 'Elevação panturrilha unilateral', setsReps: '3x10-12', notes: 'Pausa de 2s embaixo' },
@@ -153,9 +163,9 @@ export const SEED_LUCAS_PASIN_SCHEDULE: Schedule = {
       id: 'w-3',
       title: 'Força 3 — Quarta (Upper Pull + Bíceps)',
       exercises: [
-        { name: '3 Barra fixa + puxada peito', setsReps: '4x8-10', notes: 'Dorsal e bíceps', gifUrl: SEED_EXERCISES[2].gifUrl },
+        { name: '3 Barra fixa + puxada peito', setsReps: '4x8-10', notes: 'Dorsal e bíceps', gifUrl: 'https://upload.wikimedia.org/wikipedia/commons/6/69/Pullups.gif' },
         { name: 'Remada curvada', setsReps: '4x8-10', notes: 'Tronco inclinado 45°' },
-        { name: 'Rosca W', setsReps: '4x10-12', notes: 'Bíceps foco total', gifUrl: SEED_EXERCISES[3].gifUrl },
+        { name: 'Rosca W', setsReps: '4x10-12', notes: 'Bíceps foco total', gifUrl: 'https://upload.wikimedia.org/wikipedia/commons/2/23/Bicep-curl-1.gif' },
         { name: 'Rosca alternada com halteres', setsReps: '3x10/braço', notes: 'Supinação no topo' },
         { name: 'Spiderman', setsReps: '3x12-15', notes: 'Mobilidade de quadril + core' }
       ]
@@ -224,7 +234,7 @@ export const SEED_STUDENT_PAYMENTS: StudentPayment[] = [
     amount: 250.00,
     dueDate: '2026-08-10',
     status: 'PAID',
-    paidAt: '2026-08-08T14:30:00Z',
+    paidAt: new Date(Date.now() - 10 * 86400000).toISOString(),
     pixKey: '123.456.789-00',
     pixKeyType: 'CPF'
   },

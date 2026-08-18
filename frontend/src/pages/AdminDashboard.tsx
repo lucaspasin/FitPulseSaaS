@@ -22,11 +22,12 @@ import {
   X,
   CheckCircle,
   Eye,
-  Settings
+  Settings,
+  Trash2
 } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
-  const { setGym, user, updateUserGymAffiliation } = useAuth();
+  const { setGym, user, updateUserGymAffiliation, deleteUserAccount } = useAuth();
   const { t } = useLanguage();
 
   const [gyms, setGyms] = useState<Gym[]>([]);
@@ -71,6 +72,17 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const fetchTrainersAndStudents = async () => {
+    let combined: User[] = [];
+    try {
+      const res = await fetch('/api/users');
+      const contentType = res.headers.get('content-type');
+      if (res.ok && contentType && contentType.includes('application/json')) {
+        combined = await res.json();
+      }
+    } catch (err) {
+      console.warn('Using client-side users fallback:', err);
+    }
+
     const localUsers: User[] = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
     
     // Default mocks if not in local
@@ -97,12 +109,14 @@ export const AdminDashboard: React.FC = () => {
       }
     ];
 
-    const combined = [...localUsers];
     mockTrainers.forEach(mt => {
       if (!combined.some(u => u.id === mt.id || u.email === mt.email)) combined.push(mt);
     });
     mockStudents.forEach(ms => {
       if (!combined.some(u => u.id === ms.id || u.email === ms.email)) combined.push(ms);
+    });
+    localUsers.forEach(lu => {
+      if (!combined.some(u => u.id === lu.id || u.email === lu.email)) combined.push(lu);
     });
 
     setTrainers(combined.filter(u => u.role === 'TRAINER'));
@@ -113,6 +127,18 @@ export const AdminDashboard: React.FC = () => {
     fetchGyms();
     fetchTrainersAndStudents();
   }, [user]);
+
+  const handleDeleteUserClick = async (u: User) => {
+    const isTrainer = u.role === 'TRAINER';
+    const msg = isTrainer
+      ? `Tem certeza que deseja excluir o Treinador "${u.name}" (${u.email})? Esta ação não pode ser desfeita.`
+      : `Tem certeza que deseja excluir o Aluno "${u.name}" (${u.email})? Esta ação não pode ser desfeita.`;
+
+    if (!confirm(msg)) return;
+
+    await deleteUserAccount(u.id);
+    fetchTrainersAndStudents();
+  };
 
   const handleSaveGym = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -191,7 +217,8 @@ export const AdminDashboard: React.FC = () => {
           name: trainerName,
           email: trainerEmail,
           password: tempPassword,
-          gymId: assignedGymId
+          gymId: assignedGymId,
+          inviteCode: `TRN-${trainerName.toUpperCase().replace(/\s+/g, '')}`
         })
       });
 
@@ -500,7 +527,7 @@ export const AdminDashboard: React.FC = () => {
                 </div>
               ))}
 
-              {/* Trainers List WITH GYM RE-ASSIGNMENT SELECTOR */}
+              {/* Trainers List WITH GYM RE-ASSIGNMENT SELECTOR AND DELETE BUTTON */}
               {activeInspectorModal === 'trainers' && filteredTrainersInspector.map((tr) => (
                 <div key={tr.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4">
                   <div>
@@ -522,16 +549,17 @@ export const AdminDashboard: React.FC = () => {
                     </select>
 
                     <button
-                      onClick={() => alert(`Convite de e-mail reenviado para ${tr.email}`)}
-                      className="px-3 py-1.5 rounded-xl bg-blue-600 text-white font-bold text-xs"
+                      onClick={() => handleDeleteUserClick(tr)}
+                      className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 text-rose-600 dark:text-rose-400 font-bold text-xs border border-rose-200 dark:border-rose-800 flex items-center gap-1"
+                      title="Excluir Treinador"
                     >
-                      Reenviar Convite
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
               ))}
 
-              {/* Students List */}
+              {/* Students List WITH DELETE BUTTON */}
               {activeInspectorModal === 'students' && filteredStudentsInspector.map((st) => (
                 <div key={st.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4">
                   <div>
@@ -546,9 +574,18 @@ export const AdminDashboard: React.FC = () => {
                     </div>
                   </div>
 
-                  <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
-                    Ativo
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
+                      Ativo
+                    </span>
+                    <button
+                      onClick={() => handleDeleteUserClick(st)}
+                      className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 text-rose-600 dark:text-rose-400 font-bold text-xs border border-rose-200 dark:border-rose-800 flex items-center gap-1"
+                      title="Excluir Aluno"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ))}
 

@@ -30,40 +30,46 @@ export class FileStorageAdapter {
   }
 
   private load(): DatabaseSchema {
+    let parsed: DatabaseSchema | null = null;
     try {
       if (fs.existsSync(this.filePath)) {
         const raw = fs.readFileSync(this.filePath, 'utf-8');
-        const parsed = JSON.parse(raw);
-        if (parsed.users && parsed.users.length > 0) {
-          return parsed;
-        }
+        parsed = JSON.parse(raw);
       }
     } catch (err) {
       console.error('Error loading db.json:', err);
     }
 
-    // Seed initial data if db.json is missing or empty
-    const initialData: DatabaseSchema = {
-      users: SEED_USERS,
-      gyms: SEED_GYMS,
-      exercises: SEED_EXERCISES,
-      schedules: [SEED_LUCAS_PASIN_SCHEDULE],
-      paymentConfigs: [SEED_PAYMENT_CONFIG],
-      studentPayments: SEED_STUDENT_PAYMENTS,
-      executionLogs: []
-    };
+    if (!parsed || !parsed.users || parsed.users.length === 0) {
+      parsed = {
+        users: SEED_USERS,
+        gyms: SEED_GYMS,
+        exercises: SEED_EXERCISES,
+        schedules: [SEED_LUCAS_PASIN_SCHEDULE],
+        paymentConfigs: [SEED_PAYMENT_CONFIG],
+        studentPayments: SEED_STUDENT_PAYMENTS,
+        executionLogs: []
+      };
+    } else {
+      // Ensure seed trainers exist in existing db.json
+      SEED_USERS.forEach(su => {
+        if (!parsed!.users.some(u => u.id === su.id || u.email === su.email)) {
+          parsed!.users.push(su);
+        }
+      });
+    }
 
     try {
       const dir = path.dirname(this.filePath);
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
-      fs.writeFileSync(this.filePath, JSON.stringify(initialData, null, 2), 'utf-8');
+      fs.writeFileSync(this.filePath, JSON.stringify(parsed, null, 2), 'utf-8');
     } catch (err) {
-      console.error('Error writing initial seed to db.json:', err);
+      console.error('Error writing seed to db.json:', err);
     }
 
-    return initialData;
+    return parsed;
   }
 
   private save(): void {
@@ -79,6 +85,10 @@ export class FileStorageAdapter {
   }
 
   // --- Users ---
+  async findAllUsers(): Promise<User[]> {
+    return this.data.users;
+  }
+
   async findUserByEmail(email: string): Promise<User | null> {
     return this.data.users.find(u => u.email.toLowerCase() === email.toLowerCase()) || null;
   }
@@ -93,6 +103,7 @@ export class FileStorageAdapter {
       u.role === 'TRAINER' && (
         (u.inviteCode && u.inviteCode.toUpperCase() === clean) ||
         (`TRN-${u.name.toUpperCase().replace(/\s+/g, '')}` === clean) ||
+        clean.includes(u.name.toUpperCase().replace(/\s+/g, '')) ||
         u.id === inviteCode
       )
     ) || null;
@@ -121,6 +132,18 @@ export class FileStorageAdapter {
     this.data.users[idx] = { ...this.data.users[idx], ...userData };
     this.save();
     return this.data.users[idx];
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    const initialLen = this.data.users.length;
+    this.data.users = this.data.users.filter(u => u.id !== id);
+    if (this.data.users.length !== initialLen) {
+      this.data.schedules = this.data.schedules.filter(s => s.studentId !== id && s.trainerId !== id);
+      this.data.studentPayments = this.data.studentPayments.filter(p => p.studentId !== id && p.trainerId !== id);
+      this.save();
+      return true;
+    }
+    return false;
   }
 
   // --- Gyms ---
@@ -181,7 +204,7 @@ export class FileStorageAdapter {
     return false;
   }
 
-  // --- Schedules (Support In-Place Update when ID is present) ---
+  // --- Schedules ---
   async findActiveScheduleByStudentId(studentId: string): Promise<Schedule | null> {
     return this.data.schedules.find(s => s.studentId === studentId && s.active) || null;
   }

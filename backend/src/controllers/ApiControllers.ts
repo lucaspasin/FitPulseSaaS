@@ -13,6 +13,24 @@ export function createApiRouter(): Router {
   const paymentService = new PaymentService(storage);
 
   // --- Auth & Gym Public Routes ---
+  router.get('/users', async (req: Request, res: Response) => {
+    try {
+      const users = await storage.findAllUsers();
+      res.json(users);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.delete('/users/:id', async (req: Request, res: Response) => {
+    try {
+      const success = await storage.deleteUser(req.params.id);
+      res.json({ success });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   router.post('/auth/login', async (req: Request, res: Response) => {
     try {
       const { email, password } = req.body;
@@ -48,7 +66,7 @@ export function createApiRouter(): Router {
         passwordHash: password || 'trainer123',
         role: 'TRAINER',
         gymId: gymId || 'gym-dutra12',
-        inviteCode: inviteCode || `TRN-${Math.random().toString(36).substr(2, 6).toUpperCase()}`
+        inviteCode: inviteCode || `TRN-${name.toUpperCase().replace(/\s+/g, '')}`
       });
 
       res.status(201).json(newTrainer);
@@ -106,15 +124,18 @@ export function createApiRouter(): Router {
 
   router.put('/users/:userId/tags', async (req: Request, res: Response) => {
     try {
-      const { tags } = req.body;
-      const updated = await storage.updateUser(req.params.userId, { tags });
+      const { tags, status } = req.body;
+      const updateData: any = {};
+      if (tags !== undefined) updateData.tags = tags;
+      if (status !== undefined) updateData.status = status;
+      const updated = await storage.updateUser(req.params.userId, updateData);
       res.json(updated);
     } catch (err: any) {
       res.status(400).json({ error: err.message });
     }
   });
 
-  // --- Exercise Bank (GIF Support) ---
+  // --- Exercise Bank Routes ---
   router.get('/trainers/:trainerId/exercises', async (req: Request, res: Response) => {
     try {
       const exercises = await exerciseService.getExercisesByTrainer(req.params.trainerId);
@@ -135,17 +156,18 @@ export function createApiRouter(): Router {
 
   router.delete('/exercises/:id', async (req: Request, res: Response) => {
     try {
-      const deleted = await exerciseService.deleteExercise(req.params.id);
-      res.json({ success: deleted });
+      const success = await exerciseService.deleteExercise(req.params.id);
+      res.json({ success });
     } catch (err: any) {
-      res.status(400).json({ error: err.message });
+      res.status(500).json({ error: err.message });
     }
   });
 
-  // --- Schedules / Prescriptions ---
+  // --- Schedule Prescriptions ---
   router.get('/students/:studentId/schedules/active', async (req: Request, res: Response) => {
     try {
       const schedule = await scheduleService.getActiveScheduleForStudent(req.params.studentId);
+      if (!schedule) return res.status(404).json({ error: 'No active schedule found' });
       res.json(schedule);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -154,7 +176,7 @@ export function createApiRouter(): Router {
 
   router.get('/students/:studentId/schedules', async (req: Request, res: Response) => {
     try {
-      const schedules = await scheduleService.getStudentSchedules(req.params.studentId);
+      const schedules = await storage.findSchedulesByStudentId(req.params.studentId);
       res.json(schedules);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -170,7 +192,7 @@ export function createApiRouter(): Router {
     }
   });
 
-  router.post('/schedules/execution-logs', async (req: Request, res: Response) => {
+  router.post('/executions', async (req: Request, res: Response) => {
     try {
       const log = await scheduleService.logExecution(req.body);
       res.status(201).json(log);
@@ -179,7 +201,7 @@ export function createApiRouter(): Router {
     }
   });
 
-  router.get('/students/:studentId/execution-logs', async (req: Request, res: Response) => {
+  router.get('/students/:studentId/executions', async (req: Request, res: Response) => {
     try {
       const logs = await scheduleService.getExecutionLogs(req.params.studentId);
       res.json(logs);
@@ -188,7 +210,7 @@ export function createApiRouter(): Router {
     }
   });
 
-  // --- PIX Payments & Billing ---
+  // --- Billing & PIX Payments ---
   router.get('/trainers/:trainerId/payment-config', async (req: Request, res: Response) => {
     try {
       const config = await paymentService.getTrainerConfig(req.params.trainerId);
@@ -216,29 +238,10 @@ export function createApiRouter(): Router {
     }
   });
 
-  router.get('/trainers/:trainerId/payments', async (req: Request, res: Response) => {
-    try {
-      const payments = await paymentService.getTrainerStudentPayments(req.params.trainerId);
-      res.json(payments);
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
   router.post('/payments/:paymentId/pay', async (req: Request, res: Response) => {
     try {
-      const result = await paymentService.markAsPaidAndRenewNextMonth(req.params.paymentId);
-      res.json(result);
-    } catch (err: any) {
-      res.status(400).json({ error: err.message });
-    }
-  });
-
-  router.put('/payments/:paymentId/status', async (req: Request, res: Response) => {
-    try {
-      const { status } = req.body;
-      const updated = await paymentService.updatePaymentStatus(req.params.paymentId, status);
-      res.json(updated);
+      const payment = await paymentService.updatePaymentStatus(req.params.paymentId, 'PAID');
+      res.json(payment);
     } catch (err: any) {
       res.status(400).json({ error: err.message });
     }

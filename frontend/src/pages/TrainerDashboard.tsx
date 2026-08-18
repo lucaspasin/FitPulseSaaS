@@ -41,7 +41,7 @@ import {
 } from 'lucide-react';
 
 export const TrainerDashboard: React.FC = () => {
-  const { user, updateUserGymAffiliation } = useAuth();
+  const { user, updateUserGymAffiliation, deleteUserAccount } = useAuth();
   const { t } = useLanguage();
 
   const [activeSubTab, setActiveSubTab] = useState<'students' | 'expiringWorkout' | 'expiringPayment' | 'exercises' | 'pixSettings'>('students');
@@ -101,22 +101,31 @@ export const TrainerDashboard: React.FC = () => {
 
   const fetchStudents = async () => {
     if (!user) return;
+
+    let serverStudents: any[] = [];
     try {
       const res = await fetch(`/api/trainers/${user.id}/students`);
       const contentType = res.headers.get('content-type');
       if (res.ok && contentType && contentType.includes('application/json')) {
-        setStudents(await res.json());
-        return;
+        serverStudents = await res.json();
       }
     } catch (err) {
       console.warn('Using client-side students fallback:', err);
     }
 
     const localUsers = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
-    const studentList = localUsers.filter((u: any) => 
+    const localStudents = localUsers.filter((u: any) => 
       u.role === 'STUDENT' && (u.trainerId === user.id || (!u.trainerId && user.id === 'usr-trainer-dutra'))
     );
-    setStudents(studentList);
+
+    const merged = [...serverStudents];
+    localStudents.forEach((ls: any) => {
+      if (!merged.some((m: any) => m.id === ls.id || m.email === ls.email)) {
+        merged.push(ls);
+      }
+    });
+
+    setStudents(merged);
   };
 
   const fetchExercises = async () => {
@@ -150,6 +159,15 @@ export const TrainerDashboard: React.FC = () => {
       setSelectedGymAffiliation(user.gymId || '');
     }
   }, [user]);
+
+  const handleDeleteStudent = async (studentId: string, studentName: string) => {
+    if (!confirm(`Tem certeza que deseja excluir o aluno "${studentName}"? Esta ação não pode ser desfeita.`)) return;
+    await deleteUserAccount(studentId);
+    if (selectedStudentDetail && selectedStudentDetail.id === studentId) {
+      setSelectedStudentDetail(null);
+    }
+    fetchStudents();
+  };
 
   const handleCopyReferral = () => {
     const link = `${window.location.origin}/register?invite=${inviteCode}`;
@@ -614,13 +632,25 @@ export const TrainerDashboard: React.FC = () => {
                       <h3 className="font-extrabold text-base text-slate-900 dark:text-white group-hover:text-blue-600">{st.name}</h3>
                       <span className="text-xs text-slate-500 dark:text-slate-400">{st.email}</span>
                     </div>
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
-                      st.status === 'INACTIVE'
-                        ? 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400 border border-rose-300 dark:border-rose-800'
-                        : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800'
-                    }`}>
-                      {st.status === 'INACTIVE' ? t('inactiveStatus') : t('activeStatus')}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                        st.status === 'INACTIVE'
+                          ? 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400 border border-rose-300 dark:border-rose-800'
+                          : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800'
+                      }`}>
+                        {st.status === 'INACTIVE' ? t('inactiveStatus') : t('activeStatus')}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteStudent(st.id, st.name);
+                        }}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        title="Excluir Aluno"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="flex flex-wrap gap-1.5 pt-1">
@@ -1040,7 +1070,15 @@ export const TrainerDashboard: React.FC = () => {
             </div>
 
             {/* Sticky Footer */}
-            <div className="p-4 sm:p-5 flex items-center justify-end border-t border-slate-200 dark:border-slate-800 shrink-0 bg-white dark:bg-slate-900 z-10">
+            <div className="p-4 sm:p-5 flex items-center justify-between border-t border-slate-200 dark:border-slate-800 shrink-0 bg-white dark:bg-slate-900 z-10">
+              <button
+                type="button"
+                onClick={() => handleDeleteStudent(selectedStudentDetail.id, selectedStudentDetail.name)}
+                className="px-4 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 text-rose-600 dark:text-rose-400 font-bold text-xs border border-rose-200 dark:border-rose-800 flex items-center gap-1.5"
+              >
+                <Trash2 className="w-4 h-4" /> Excluir Aluno
+              </button>
+
               <button
                 type="button"
                 onClick={() => setSelectedStudentDetail(null)}
