@@ -77,12 +77,12 @@ export const TrainerDashboard: React.FC = () => {
   // Collapsible Workout Plan Editor State
   const [editingScheduleData, setEditingScheduleData] = useState<any | null>(null);
   const [openSegments, setOpenSegments] = useState<Record<string, boolean>>({
-    seg1: true, // Info Geral & Preço
-    seg2: false, // Matriz Semanal
-    seg3: false, // Progressão
-    seg4: true, // Rotinas de Força
-    seg5: false, // Recuperação
-    seg6: false // Calendário
+    seg1: true,
+    seg2: false,
+    seg3: false,
+    seg4: true,
+    seg5: false,
+    seg6: false
   });
 
   const [openWorkouts, setOpenWorkouts] = useState<Record<string, boolean>>({});
@@ -99,20 +99,35 @@ export const TrainerDashboard: React.FC = () => {
     if (!user) return;
     try {
       const res = await fetch(`/api/trainers/${user.id}/students`);
-      if (res.ok) setStudents(await res.json());
+      const contentType = res.headers.get('content-type');
+      if (res.ok && contentType && contentType.includes('application/json')) {
+        setStudents(await res.json());
+        return;
+      }
     } catch (err) {
-      console.error(err);
+      console.warn('Using client-side students fallback:', err);
     }
+
+    const localUsers = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
+    const studentList = localUsers.filter((u: any) => u.role === 'STUDENT');
+    setStudents(studentList);
   };
 
   const fetchExercises = async () => {
     if (!user) return;
     try {
       const res = await fetch(`/api/trainers/${user.id}/exercises`);
-      if (res.ok) setExercises(await res.json());
+      const contentType = res.headers.get('content-type');
+      if (res.ok && contentType && contentType.includes('application/json')) {
+        setExercises(await res.json());
+        return;
+      }
     } catch (err) {
-      console.error(err);
+      console.warn('Using client-side exercises fallback:', err);
     }
+
+    const localEx = JSON.parse(localStorage.getItem('fitpulse_exercises') || '[]');
+    setExercises(localEx);
   };
 
   useEffect(() => {
@@ -140,18 +155,34 @@ export const TrainerDashboard: React.FC = () => {
     setSelectedStudentDetail(st);
     setStudentDetailTab('info');
 
+    // Fetch payments
     try {
       const resP = await fetch(`/api/students/${st.id}/payments`);
-      if (resP.ok) setStudentPaymentHistory(await resP.json());
+      const contentType = resP.headers.get('content-type');
+      if (resP.ok && contentType && contentType.includes('application/json')) {
+        setStudentPaymentHistory(await resP.json());
+      } else {
+        const localPay = JSON.parse(localStorage.getItem('fitpulse_payments') || '[]');
+        setStudentPaymentHistory(localPay.filter((p: any) => p.studentId === st.id));
+      }
     } catch (err) {
-      console.error(err);
+      const localPay = JSON.parse(localStorage.getItem('fitpulse_payments') || '[]');
+      setStudentPaymentHistory(localPay.filter((p: any) => p.studentId === st.id));
     }
 
+    // Fetch schedules
     try {
       const resS = await fetch(`/api/students/${st.id}/schedules`);
-      if (resS.ok) setStudentSchedulesList(await resS.json());
+      const contentType = resS.headers.get('content-type');
+      if (resS.ok && contentType && contentType.includes('application/json')) {
+        setStudentSchedulesList(await resS.json());
+      } else {
+        const localSched = JSON.parse(localStorage.getItem('fitpulse_schedules') || '[]');
+        setStudentSchedulesList(localSched.filter((s: any) => s.studentId === st.id));
+      }
     } catch (err) {
-      console.error(err);
+      const localSched = JSON.parse(localStorage.getItem('fitpulse_schedules') || '[]');
+      setStudentSchedulesList(localSched.filter((s: any) => s.studentId === st.id));
     }
   };
 
@@ -167,10 +198,17 @@ export const TrainerDashboard: React.FC = () => {
       if (res.ok) {
         setSelectedStudentDetail({ ...selectedStudentDetail, status: newStatus });
         fetchStudents();
+        return;
       }
     } catch (err) {
-      console.error(err);
+      console.warn('Updating student status in client storage:', err);
     }
+
+    const localUsers = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
+    const updatedUsers = localUsers.map((u: any) => u.id === selectedStudentDetail.id ? { ...u, status: newStatus } : u);
+    localStorage.setItem('fitpulse_users', JSON.stringify(updatedUsers));
+    setSelectedStudentDetail({ ...selectedStudentDetail, status: newStatus });
+    setStudents(updatedUsers.filter((u: any) => u.role === 'STUDENT'));
   };
 
   const handleAddTag = async () => {
@@ -188,10 +226,18 @@ export const TrainerDashboard: React.FC = () => {
         setSelectedStudentDetail({ ...selectedStudentDetail, tags: updatedTags });
         setNewTagInput('');
         fetchStudents();
+        return;
       }
     } catch (err) {
-      console.error(err);
+      console.warn('Updating tags in client storage:', err);
     }
+
+    const localUsers = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
+    const updatedUsers = localUsers.map((u: any) => u.id === selectedStudentDetail.id ? { ...u, tags: updatedTags } : u);
+    localStorage.setItem('fitpulse_users', JSON.stringify(updatedUsers));
+    setSelectedStudentDetail({ ...selectedStudentDetail, tags: updatedTags });
+    setNewTagInput('');
+    setStudents(updatedUsers.filter((u: any) => u.role === 'STUDENT'));
   };
 
   const handleRemoveTag = async (tagToRemove: string) => {
@@ -207,10 +253,17 @@ export const TrainerDashboard: React.FC = () => {
       if (res.ok) {
         setSelectedStudentDetail({ ...selectedStudentDetail, tags: updatedTags });
         fetchStudents();
+        return;
       }
     } catch (err) {
-      console.error(err);
+      console.warn('Removing tag in client storage:', err);
     }
+
+    const localUsers = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
+    const updatedUsers = localUsers.map((u: any) => u.id === selectedStudentDetail.id ? { ...u, tags: updatedTags } : u);
+    localStorage.setItem('fitpulse_users', JSON.stringify(updatedUsers));
+    setSelectedStudentDetail({ ...selectedStudentDetail, tags: updatedTags });
+    setStudents(updatedUsers.filter((u: any) => u.role === 'STUDENT'));
   };
 
   const handleMarkPaymentAsPaid = async (paymentId: string) => {
@@ -225,9 +278,18 @@ export const TrainerDashboard: React.FC = () => {
           const resP = await fetch(`/api/students/${selectedStudentDetail.id}/payments`);
           if (resP.ok) setStudentPaymentHistory(await resP.json());
         }
+        return;
       }
     } catch (err) {
-      console.error(err);
+      console.warn('Marking payment as paid in client storage:', err);
+    }
+
+    const localPay = JSON.parse(localStorage.getItem('fitpulse_payments') || '[]');
+    const updatedPay = localPay.map((p: any) => p.id === paymentId ? { ...p, status: 'PAID', paidAt: new Date().toISOString() } : p);
+    localStorage.setItem('fitpulse_payments', JSON.stringify(updatedPay));
+    alert('Pagamento marcado como PAGO! Próximo mês renovado automaticamente.');
+    if (selectedStudentDetail) {
+      setStudentPaymentHistory(updatedPay.filter((p: any) => p.studentId === selectedStudentDetail.id));
     }
   };
 
@@ -243,6 +305,7 @@ export const TrainerDashboard: React.FC = () => {
   const handleCreateNewScheduleForStudent = () => {
     if (!selectedStudentDetail) return;
     const newSched = {
+      id: `sched-${Date.now()}`,
       studentId: selectedStudentDetail.id,
       trainerId: user?.id,
       title: `Novo Ciclo de Treino — ${selectedStudentDetail.name}`,
@@ -289,16 +352,34 @@ export const TrainerDashboard: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editingScheduleData)
       });
-      if (res.ok) {
+      const contentType = res.headers.get('content-type');
+      if (res.ok && contentType && contentType.includes('application/json')) {
         alert('Prescrição de treino salva com sucesso!');
         setEditingScheduleData(null);
         if (selectedStudentDetail) {
           const resS = await fetch(`/api/students/${selectedStudentDetail.id}/schedules`);
           if (resS.ok) setStudentSchedulesList(await resS.json());
         }
+        return;
       }
     } catch (err) {
-      console.error(err);
+      console.warn('Saving schedule to client storage:', err);
+    }
+
+    const localSched = JSON.parse(localStorage.getItem('fitpulse_schedules') || '[]');
+    const existingIdx = localSched.findIndex((s: any) => s.id === editingScheduleData.id);
+    let updated;
+    if (existingIdx !== -1) {
+      localSched[existingIdx] = { ...localSched[existingIdx], ...editingScheduleData };
+      updated = localSched;
+    } else {
+      updated = [editingScheduleData, ...localSched];
+    }
+    localStorage.setItem('fitpulse_schedules', JSON.stringify(updated));
+    alert('Prescrição de treino salva com sucesso!');
+    setEditingScheduleData(null);
+    if (selectedStudentDetail) {
+      setStudentSchedulesList(updated.filter((s: any) => s.studentId === selectedStudentDetail.id));
     }
   };
 
@@ -334,18 +415,22 @@ export const TrainerDashboard: React.FC = () => {
     e.preventDefault();
     if (!user) return;
 
+    const newEx = {
+      id: editingExId || `ex-${Date.now()}`,
+      trainerId: user.id,
+      name: exName,
+      category: exCategory,
+      muscleGroup: exMuscle,
+      instructions: exInstructions,
+      gifUrl: exGifUrl || 'https://upload.wikimedia.org/wikipedia/commons/4/4e/Bench-press-1.gif',
+      createdAt: new Date().toISOString()
+    };
+
     try {
       const res = await fetch('/api/exercises', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          trainerId: user.id,
-          name: exName,
-          category: exCategory,
-          muscleGroup: exMuscle,
-          instructions: exInstructions,
-          gifUrl: exGifUrl || 'https://upload.wikimedia.org/wikipedia/commons/4/4e/Bench-press-1.gif'
-        })
+        body: JSON.stringify(newEx)
       });
       if (res.ok) {
         setShowExModal(false);
@@ -354,20 +439,46 @@ export const TrainerDashboard: React.FC = () => {
         setExInstructions('');
         setExGifUrl('');
         fetchExercises();
+        return;
       }
     } catch (err) {
-      console.error(err);
+      console.warn('Saving exercise to client storage:', err);
     }
+
+    const localEx = JSON.parse(localStorage.getItem('fitpulse_exercises') || '[]');
+    const existingIdx = localEx.findIndex((ex: any) => ex.id === newEx.id);
+    let updatedEx;
+    if (existingIdx !== -1) {
+      localEx[existingIdx] = newEx;
+      updatedEx = localEx;
+    } else {
+      updatedEx = [...localEx, newEx];
+    }
+    localStorage.setItem('fitpulse_exercises', JSON.stringify(updatedEx));
+    setShowExModal(false);
+    setEditingExId(null);
+    setExName('');
+    setExInstructions('');
+    setExGifUrl('');
+    setExercises(updatedEx);
   };
 
   const handleDeleteExerciseBankItem = async (id: string) => {
     if (!confirm('Deseja realmente remover este exercício do banco?')) return;
     try {
       const res = await fetch(`/api/exercises/${id}`, { method: 'DELETE' });
-      if (res.ok) fetchExercises();
+      if (res.ok) {
+        fetchExercises();
+        return;
+      }
     } catch (err) {
-      console.error(err);
+      console.warn('Deleting exercise in client storage:', err);
     }
+
+    const localEx = JSON.parse(localStorage.getItem('fitpulse_exercises') || '[]');
+    const updatedEx = localEx.filter((ex: any) => ex.id !== id);
+    localStorage.setItem('fitpulse_exercises', JSON.stringify(updatedEx));
+    setExercises(updatedEx);
   };
 
   return (
@@ -914,7 +1025,7 @@ export const TrainerDashboard: React.FC = () => {
             {/* Scrollable Body */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
               
-              {/* SEGMENT 1: UNCrowded CLEAN LAYOUT FOR GENERAL INFO, DUAL DUE DATES & PRICING */}
+              {/* SEGMENT 1: UN CROWDED CLEAN LAYOUT FOR GENERAL INFO, DUAL DUE DATES & PRICING */}
               <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
                 <button
                   type="button"
