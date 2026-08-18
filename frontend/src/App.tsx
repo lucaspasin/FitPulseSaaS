@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from './context/AuthContext.js';
 import { Navbar } from './components/Navbar.js';
 import { Login } from './pages/Login.js';
@@ -8,8 +8,23 @@ import { TrainerDashboard } from './pages/TrainerDashboard.js';
 import { StudentApp } from './pages/StudentApp.js';
 
 export const AppContent: React.FC = () => {
-  const { user } = useAuth();
-  const [authView, setAuthView] = useState<'login' | 'register'>('login');
+  const { user, logout } = useAuth();
+  const [authView, setAuthView] = useState<'login' | 'register'>(() => {
+    const path = window.location.pathname;
+    const search = window.location.search;
+    if (path.includes('/register') || search.includes('invite=') || search.includes('code=')) {
+      return 'register';
+    }
+    return 'login';
+  });
+
+  useEffect(() => {
+    const path = window.location.pathname;
+    const search = window.location.search;
+    if (path.includes('/register') || search.includes('invite=')) {
+      setAuthView('register');
+    }
+  }, []);
 
   if (!user) {
     return authView === 'login' ? (

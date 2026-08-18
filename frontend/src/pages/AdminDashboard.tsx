@@ -112,7 +112,7 @@ export const AdminDashboard: React.FC = () => {
   useEffect(() => {
     fetchGyms();
     fetchTrainersAndStudents();
-  }, []);
+  }, [user]);
 
   const handleSaveGym = async (e: React.FormEvent) => {
     e.preventDefault();
