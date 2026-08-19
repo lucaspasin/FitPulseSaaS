@@ -83,7 +83,7 @@ export const StudentApp: React.FC = () => {
   const isAccessBlocked = unpaidCount > 2;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6 animate-fade-in pb-24 sm:pb-12">
+    <div className="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-6 animate-fade-in pb-24 sm:pb-12">
       
       {/* ACCESS BLOCKED WARNING SCREEN IF UNPAID > 2 */}
       {isAccessBlocked ? (
@@ -107,10 +107,10 @@ export const StudentApp: React.FC = () => {
       ) : (
         <>
           {/* Mobile Navigation Bar */}
-          <div className="flex items-center justify-around bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-2 shadow-xl backdrop-blur-md sticky top-20 z-30">
+          <div className="flex items-center justify-around bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-1.5 sm:p-2 shadow-xl backdrop-blur-md sticky top-[3.5rem] sm:top-20 z-30 overflow-x-auto gap-1">
             <button
               onClick={() => setActiveTab('schedule')}
-              className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+              className={`flex-1 min-w-[5.5rem] py-2.5 rounded-xl text-[11px] sm:text-xs font-bold flex items-center justify-center gap-1.5 sm:gap-2 transition-all whitespace-nowrap ${
                 activeTab === 'schedule'
                   ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -122,7 +122,7 @@ export const StudentApp: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('history')}
-              className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+              className={`flex-1 min-w-[5.5rem] py-2.5 rounded-xl text-[11px] sm:text-xs font-bold flex items-center justify-center gap-1.5 sm:gap-2 transition-all whitespace-nowrap ${
                 activeTab === 'history'
                   ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -134,7 +134,7 @@ export const StudentApp: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('payment')}
-              className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+              className={`flex-1 min-w-[5.5rem] py-2.5 rounded-xl text-[11px] sm:text-xs font-bold flex items-center justify-center gap-1.5 sm:gap-2 transition-all whitespace-nowrap ${
                 activeTab === 'payment'
                   ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -147,7 +147,7 @@ export const StudentApp: React.FC = () => {
 
           {/* Historical Schedule Selector */}
           {allSchedules.length > 1 && (
-            <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs shadow-sm">
+            <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm">
               <span className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                 <Archive className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 <span>{t('viewPreviousWorkouts')}</span>

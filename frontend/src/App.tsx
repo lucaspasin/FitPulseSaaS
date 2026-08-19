@@ -6,6 +6,7 @@ import { Register } from './pages/Register.js';
 import { AdminDashboard } from './pages/AdminDashboard.js';
 import { TrainerDashboard } from './pages/TrainerDashboard.js';
 import { StudentApp } from './pages/StudentApp.js';
+import { AuthLayout } from './components/AuthLayout.js';
 
 export const AppContent: React.FC = () => {
   const { user, logout } = useAuth();
@@ -27,10 +28,14 @@ export const AppContent: React.FC = () => {
   }, []);
 
   if (!user) {
-    return authView === 'login' ? (
-      <Login onSwitchToRegister={() => setAuthView('register')} />
-    ) : (
-      <Register onSwitchToLogin={() => setAuthView('login')} />
+    return (
+      <AuthLayout>
+        {authView === 'login' ? (
+          <Login onSwitchToRegister={() => setAuthView('register')} />
+        ) : (
+          <Register onSwitchToLogin={() => setAuthView('login')} />
+        )}
+      </AuthLayout>
     );
   }
 
