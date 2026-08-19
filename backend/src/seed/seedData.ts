@@ -139,6 +139,7 @@ export const SEED_LUCAS_PASIN_SCHEDULE: Schedule = {
     {
       id: 'w-1',
       title: 'Força 1 — Segunda (Upper Push)',
+      weekday: 'Segunda',
       exercises: [
         { name: 'Supino reto', setsReps: '4x8-10', notes: 'Carga progressiva', gifUrl: 'https://upload.wikimedia.org/wikipedia/commons/4/4e/Bench-press-1.gif' },
         { name: 'Desenvolvimento Arnold', setsReps: '3x8-10', notes: 'Rotação fluida de punho' },
@@ -151,6 +152,7 @@ export const SEED_LUCAS_PASIN_SCHEDULE: Schedule = {
     {
       id: 'w-2',
       title: 'Força 2 — Terça (Pernas pesado)',
+      weekday: 'Terça',
       exercises: [
         { name: 'Agachamento livre', setsReps: '4x6-8', notes: 'Pernas pesado', gifUrl: 'https://upload.wikimedia.org/wikipedia/commons/8/82/Squats.gif' },
         { name: 'Leg press', setsReps: '3x10-12', notes: 'Foco em quadríceps' },
@@ -162,6 +164,7 @@ export const SEED_LUCAS_PASIN_SCHEDULE: Schedule = {
     {
       id: 'w-3',
       title: 'Força 3 — Quarta (Upper Pull + Bíceps)',
+      weekday: 'Quarta',
       exercises: [
         { name: '3 Barra fixa + puxada peito', setsReps: '4x8-10', notes: 'Dorsal e bíceps', gifUrl: 'https://upload.wikimedia.org/wikipedia/commons/6/69/Pullups.gif' },
         { name: 'Remada curvada', setsReps: '4x8-10', notes: 'Tronco inclinado 45°' },
@@ -173,6 +176,7 @@ export const SEED_LUCAS_PASIN_SCHEDULE: Schedule = {
     {
       id: 'w-4',
       title: 'Força 4 — Quinta (Pernas moderado/posterior)',
+      weekday: 'Quinta',
       exercises: [
         { name: 'Pliométrico step (alternado - bilateral - unilateral)', setsReps: '2x (3x10)', notes: 'Explosão e reatividade' },
         { name: 'Terra', setsReps: '4x8', notes: 'Cadeia posterior e eretores' },
@@ -185,6 +189,7 @@ export const SEED_LUCAS_PASIN_SCHEDULE: Schedule = {
     {
       id: 'w-5',
       title: 'Força 5 — Sexta (Upper hipertrofia + Bíceps)',
+      weekday: 'Sexta',
       exercises: [
         { name: 'Supino inclinado com halteres', setsReps: '4x10-12', notes: 'Porção superior de peito' },
         { name: 'Remada máquina', setsReps: '4x10-12', notes: 'Retração escapular' },

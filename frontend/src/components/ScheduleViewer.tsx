@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../context/LanguageContext.js';
-import { ExercisePerformance, formatLoggedSets, LoggedSet, parsePrescribedSetCount } from '../types/workoutLog.js';
+import { ExercisePerformance, formatLoggedSets, LoggedSet } from '../types/workoutLog.js';
+import {
+  JS_DAY_TO_WEEKDAY_PT,
+  WEEKDAY_I18N_KEYS,
+  inferWeekday,
+  resolveExercisePrescription,
+  type EffortType,
+  type WeekdayPt
+} from '../types/prescription.js';
 import {
   Calendar as CalendarIcon,
   Flame,
@@ -21,6 +29,9 @@ import {
 interface Exercise {
   name: string;
   setsReps: string;
+  setsCount?: number;
+  effortType?: EffortType;
+  effortValue?: string;
   notes?: string;
   gifUrl?: string;
 }
@@ -28,6 +39,7 @@ interface Exercise {
 interface Workout {
   id: string;
   title: string;
+  weekday?: string;
   exercises: Exercise[];
 }
 
@@ -73,31 +85,36 @@ interface ScheduleViewerProps {
   onLogWorkout?: (workoutTitle: string, completedExercises: string[], exercisePerformances: ExercisePerformance[]) => void;
 }
 
-type SetDraft = { weightKg: string; reps: string };
+type SetDraft = { weightKg: string; reps: string; durationSec: string };
 
-const emptySets = (setsReps: string): SetDraft[] =>
-  Array.from({ length: parsePrescribedSetCount(setsReps) }, () => ({ weightKg: '', reps: '' }));
+const emptySets = (count: number): SetDraft[] =>
+  Array.from({ length: count }, () => ({ weightKg: '', reps: '', durationSec: '' }));
 
-const toLoggedSets = (sets: SetDraft[]): LoggedSet[] =>
+const toLoggedSets = (sets: SetDraft[], effortType: EffortType): LoggedSet[] =>
   sets.map((set) => {
     const weight = set.weightKg.trim() === '' ? undefined : Number(set.weightKg);
-    const reps = set.reps.trim() === '' ? undefined : Number(set.reps);
     const logged: LoggedSet = {};
     if (weight != null && Number.isFinite(weight)) logged.weightKg = weight;
-    if (reps != null && Number.isFinite(reps)) logged.reps = reps;
+    if (effortType === 'time') {
+      const durationSec = set.durationSec.trim() === '' ? undefined : Number(set.durationSec);
+      if (durationSec != null && Number.isFinite(durationSec)) logged.durationSec = durationSec;
+    } else {
+      const reps = set.reps.trim() === '' ? undefined : Number(set.reps);
+      if (reps != null && Number.isFinite(reps)) logged.reps = reps;
+    }
     return logged;
   });
 
 export const ScheduleViewer: React.FC<ScheduleViewerProps> = ({ schedule, onLogWorkout }) => {
   const { t } = useLanguage();
 
-  // Detect current day of week (e.g. Terça -> Força 2)
-  const daysMap = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-  const todayName = daysMap[new Date().getDay()];
+  const todayName = JS_DAY_TO_WEEKDAY_PT[new Date().getDay()];
+
+  const workoutWeekday = (workout: Workout): WeekdayPt | '' => inferWeekday(workout);
 
   const getInitialWorkoutIndex = () => {
     if (!schedule.workouts || schedule.workouts.length === 0) return 0;
-    const matchIdx = schedule.workouts.findIndex(w => w.title.toLowerCase().includes(todayName.toLowerCase()));
+    const matchIdx = schedule.workouts.findIndex((w) => workoutWeekday(w) === todayName);
     return matchIdx !== -1 ? matchIdx : 0;
   };
 
@@ -110,14 +127,25 @@ export const ScheduleViewer: React.FC<ScheduleViewerProps> = ({ schedule, onLogW
 
   const exerciseKey = (exIdx: number, name: string) => `${exIdx}::${name}`;
 
-  const getSets = (key: string, setsReps: string) => exerciseLogs[key] ?? emptySets(setsReps);
+  const getSets = (key: string, count: number) => {
+    const existing = exerciseLogs[key];
+    if (!existing) return emptySets(count);
+    if (existing.length === count) return existing;
+    if (existing.length > count) return existing.slice(0, count);
+    return [...existing, ...emptySets(count - existing.length)];
+  };
 
-  const updateSet = (key: string, setsReps: string, setIdx: number, field: keyof SetDraft, value: string) => {
+  const updateSet = (key: string, count: number, setIdx: number, field: keyof SetDraft, value: string) => {
     setExerciseLogs((prev) => {
-      const current = prev[key] ?? emptySets(setsReps);
+      const current = prev[key] ?? emptySets(count);
+      const sized = current.length === count
+        ? current
+        : current.length > count
+          ? current.slice(0, count)
+          : [...current, ...emptySets(count - current.length)];
       return {
         ...prev,
-        [key]: current.map((set, idx) => (idx === setIdx ? { ...set, [field]: value } : set))
+        [key]: sized.map((set, idx) => (idx === setIdx ? { ...set, [field]: value } : set))
       };
     });
   };
@@ -137,10 +165,11 @@ export const ScheduleViewer: React.FC<ScheduleViewerProps> = ({ schedule, onLogW
     (activeWorkout.exercises || []).forEach((ex, exIdx) => {
       const key = exerciseKey(exIdx, ex.name);
       if (!completedExercises[key]) return;
+      const rx = resolveExercisePrescription(ex);
       performances.push({
         name: ex.name,
-        targetSetsReps: ex.setsReps,
-        sets: toLoggedSets(getSets(key, ex.setsReps))
+        targetSetsReps: rx.label,
+        sets: toLoggedSets(getSets(key, rx.setsCount), rx.effortType)
       });
     });
 
@@ -195,14 +224,14 @@ export const ScheduleViewer: React.FC<ScheduleViewerProps> = ({ schedule, onLogW
             <span>{t('workouts')}</span>
           </h2>
           <span className="text-xs text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-950/60 px-3 py-1 rounded-full border border-blue-200 dark:border-blue-800">
-            {todayName}
+            {t(WEEKDAY_I18N_KEYS[todayName])}
           </span>
         </div>
 
         {/* Workout Tab Selector */}
         <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-1 px-1">
           {schedule.workouts?.map((w, idx) => {
-            const isToday = w.title.toLowerCase().includes(todayName.toLowerCase());
+            const isToday = workoutWeekday(w) === todayName;
             return (
               <button
                 key={w.id || idx}
@@ -210,16 +239,23 @@ export const ScheduleViewer: React.FC<ScheduleViewerProps> = ({ schedule, onLogW
                   setActiveWorkoutIdx(idx);
                   resetWorkoutProgress();
                 }}
-                className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 ${
+                className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex flex-col items-start gap-0.5 ${
                   activeWorkoutIdx === idx
                     ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
                     : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-blue-400'
                 }`}
               >
-                <span>{w.title}</span>
-                {isToday && (
-                  <span className="px-1.5 py-0.2 rounded bg-amber-400 text-slate-950 font-black text-[9px]">
-                    {t('todayBadge')}
+                <span className="flex items-center gap-2">
+                  <span>{w.title}</span>
+                  {isToday && (
+                    <span className="px-1.5 py-0.2 rounded bg-amber-400 text-slate-950 font-black text-[9px]">
+                      {t('todayBadge')}
+                    </span>
+                  )}
+                </span>
+                {workoutWeekday(w) && (
+                  <span className={`text-[10px] font-semibold ${activeWorkoutIdx === idx ? 'text-blue-100' : 'text-slate-400'}`}>
+                    {t(WEEKDAY_I18N_KEYS[workoutWeekday(w) as WeekdayPt])}
                   </span>
                 )}
               </button>
@@ -232,14 +268,23 @@ export const ScheduleViewer: React.FC<ScheduleViewerProps> = ({ schedule, onLogW
           <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-6 shadow-md space-y-6">
             <h3 className="font-extrabold text-base text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-3">
               {activeWorkout.title}
+          <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-md space-y-6">
+            <h3 className="font-extrabold text-base text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-3 flex items-center justify-between gap-3">
+              <span>{activeWorkout.title}</span>
+              {workoutWeekday(activeWorkout) && (
+                <span className="text-[10px] font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-lg">
+                  {t(WEEKDAY_I18N_KEYS[workoutWeekday(activeWorkout) as WeekdayPt])}
+                </span>
+              )}
             </h3>
 
             <div className="space-y-4">
               {activeWorkout.exercises?.map((ex, exIdx) => {
                 const key = exerciseKey(exIdx, ex.name);
                 const isDone = !!completedExercises[key];
-                const sets = getSets(key, ex.setsReps);
-                const summary = formatLoggedSets(toLoggedSets(sets));
+                const rx = resolveExercisePrescription(ex);
+                const sets = getSets(key, rx.setsCount);
+                const summary = formatLoggedSets(toLoggedSets(sets, rx.effortType));
 
                 return (
                   <div
@@ -287,7 +332,7 @@ export const ScheduleViewer: React.FC<ScheduleViewerProps> = ({ schedule, onLogW
                             {ex.name}
                           </h4>
                           <span className="px-2.5 py-0.5 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-bold text-xs shrink-0">
-                            {ex.setsReps}
+                            {rx.label}
                           </span>
                         </div>
 
@@ -326,22 +371,39 @@ export const ScheduleViewer: React.FC<ScheduleViewerProps> = ({ schedule, onLogW
                                   min="0"
                                   step="0.5"
                                   value={set.weightKg}
-                                  onChange={(e) => updateSet(key, ex.setsReps, setIdx, 'weightKg', e.target.value)}
+                                  onChange={(e) => updateSet(key, rx.setsCount, setIdx, 'weightKg', e.target.value)}
                                   className="w-full bg-transparent text-sm font-bold text-slate-900 dark:text-white outline-none"
                                 />
                               </label>
-                              <label className="flex-1 flex items-center gap-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-2.5 py-2">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase">{t('repsShort')}</span>
-                                <input
-                                  type="number"
-                                  inputMode="numeric"
-                                  min="0"
-                                  step="1"
-                                  value={set.reps}
-                                  onChange={(e) => updateSet(key, ex.setsReps, setIdx, 'reps', e.target.value)}
-                                  className="w-full bg-transparent text-sm font-bold text-slate-900 dark:text-white outline-none"
-                                />
-                              </label>
+                              {rx.effortType === 'time' ? (
+                                <label className="flex-1 flex items-center gap-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-2.5 py-2">
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase">{t('timeSeconds')}</span>
+                                  <input
+                                    type="number"
+                                    inputMode="numeric"
+                                    min="0"
+                                    step="1"
+                                    placeholder={rx.effortValue.replace(/[^\d]/g, '') || '30'}
+                                    value={set.durationSec}
+                                    onChange={(e) => updateSet(key, rx.setsCount, setIdx, 'durationSec', e.target.value)}
+                                    className="w-full bg-transparent text-sm font-bold text-slate-900 dark:text-white outline-none"
+                                  />
+                                </label>
+                              ) : (
+                                <label className="flex-1 flex items-center gap-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-2.5 py-2">
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase">{t('repsShort')}</span>
+                                  <input
+                                    type="number"
+                                    inputMode="numeric"
+                                    min="0"
+                                    step="1"
+                                    placeholder={rx.effortValue}
+                                    value={set.reps}
+                                    onChange={(e) => updateSet(key, rx.setsCount, setIdx, 'reps', e.target.value)}
+                                    className="w-full bg-transparent text-sm font-bold text-slate-900 dark:text-white outline-none"
+                                  />
+                                </label>
+                              )}
                             </div>
                           ))}
                         </div>
