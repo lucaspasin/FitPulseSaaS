@@ -4,6 +4,8 @@ import { ITokenService } from '../security/ITokenService.js';
 import { User, Gym, Exercise, Schedule, PaymentConfig, StudentPayment, WorkoutExecutionLog } from '../domain/types.js';
 import { toPublicUser, PublicUser } from '../domain/publicUser.js';
 import { ForbiddenError, NotFoundError } from '../http/HttpError.js';
+import { IEmailService, SendEmailResult } from '../mail/IEmailService.js';
+import { buildTrainerInviteEmail } from '../mail/trainerInviteEmail.js';
 
 export class AuthService {
   constructor(
@@ -93,7 +95,8 @@ export class GymService {
 export class UserService {
   constructor(
     private readonly storage: IStorageAdapter,
-    private readonly passwordHasher: IPasswordHasher
+    private readonly passwordHasher: IPasswordHasher,
+    private readonly emailService: IEmailService
   ) {}
 
   async listPublicUsers(): Promise<PublicUser[]> {
@@ -104,16 +107,15 @@ export class UserService {
   async createTrainer(data: {
     name: string;
     email: string;
-    password?: string;
     gymId?: string;
     inviteCode?: string;
-  }): Promise<{ user: PublicUser; temporaryPassword: string }> {
+  }): Promise<{ user: PublicUser; temporaryPassword: string; email: SendEmailResult }> {
     const existing = await this.storage.findUserByEmail(data.email);
     if (existing) {
       throw new Error('E-mail de treinador já cadastrado');
     }
 
-    const temporaryPassword = data.password || `coach${Math.floor(1000 + Math.random() * 9000)}`;
+    const temporaryPassword = `coach${Math.floor(1000 + Math.random() * 9000)}`;
     const created = await this.storage.createUser({
       name: data.name,
       email: data.email,
@@ -123,7 +125,39 @@ export class UserService {
       inviteCode: data.inviteCode || `TRN-${data.name.toUpperCase().replace(/\s+/g, '')}`,
       status: 'ACTIVE'
     });
-    return { user: toPublicUser(created), temporaryPassword };
+
+    try {
+      const email = await this.sendTrainerInvite(created.name, created.email, temporaryPassword);
+      return { user: toPublicUser(created), temporaryPassword, email };
+    } catch (err) {
+      await this.storage.deleteUser(created.id);
+      throw err;
+    }
+  }
+
+  async resendTrainerInvite(trainerId: string): Promise<{ user: PublicUser; temporaryPassword: string; email: SendEmailResult }> {
+    const trainer = await this.storage.findUserById(trainerId);
+    if (!trainer || trainer.role !== 'TRAINER') {
+      throw new NotFoundError('Treinador não encontrado');
+    }
+
+    const temporaryPassword = `coach${Math.floor(1000 + Math.random() * 9000)}`;
+    await this.storage.updateUser(trainer.id, {
+      passwordHash: await this.passwordHasher.hash(temporaryPassword)
+    });
+    const email = await this.sendTrainerInvite(trainer.name, trainer.email, temporaryPassword);
+    return { user: toPublicUser(trainer), temporaryPassword, email };
+  }
+
+  private sendTrainerInvite(name: string, email: string, temporaryPassword: string) {
+    const loginUrl = process.env.APP_PUBLIC_URL || process.env.FRONTEND_ORIGIN?.split(',')[0] || 'http://localhost:3000';
+    const message = buildTrainerInviteEmail({ name, email, temporaryPassword, loginUrl });
+    return this.emailService.send({
+      to: email,
+      subject: message.subject,
+      html: message.html,
+      text: message.text
+    });
   }
 
   async updateUser(id: string, patch: Partial<User> & { gymId?: string | null }): Promise<PublicUser | null> {

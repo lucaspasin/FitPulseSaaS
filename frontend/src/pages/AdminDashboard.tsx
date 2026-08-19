@@ -50,7 +50,14 @@ export const AdminDashboard: React.FC = () => {
   const [trainerName, setTrainerName] = useState('');
   const [trainerEmail, setTrainerEmail] = useState('');
   const [newTrainerGymId, setNewTrainerGymId] = useState('');
-  const [sentEmailModal, setSentEmailModal] = useState<{ to: string; pass: string } | null>(null);
+  const [sentEmailModal, setSentEmailModal] = useState<{
+    to: string;
+    pass: string;
+    previewUrl?: string;
+    provider?: string;
+  } | null>(null);
+  const [trainerInviteError, setTrainerInviteError] = useState('');
+  const [sendingTrainerInvite, setSendingTrainerInvite] = useState(false);
 
   // Inspector Modal State (Dataset Explorer)
   const [activeInspectorModal, setActiveInspectorModal] = useState<'gyms' | 'trainers' | 'students' | null>(null);
@@ -119,28 +126,58 @@ export const AdminDashboard: React.FC = () => {
 
   const handleCreateTrainer = async (e: React.FormEvent) => {
     e.preventDefault();
-    const tempPassword = 'coach' + Math.floor(1000 + Math.random() * 9000);
-    const assignedGymId = newTrainerGymId || undefined;
+    setTrainerInviteError('');
+    setSendingTrainerInvite(true);
+    try {
+      const assignedGymId = newTrainerGymId || undefined;
+      const result = await apiFetch<{
+        temporaryPassword: string;
+        emailPreviewUrl?: string;
+        emailProvider?: string;
+      }>('/api/trainers', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: trainerName,
+          email: trainerEmail,
+          gymId: assignedGymId,
+          inviteCode: `TRN-${trainerName.toUpperCase().replace(/\s+/g, '')}`
+        })
+      });
+      setSentEmailModal({
+        to: trainerEmail,
+        pass: result.temporaryPassword,
+        previewUrl: result.emailPreviewUrl,
+        provider: result.emailProvider
+      });
+      setShowTrainerModal(false);
+      setTrainerName('');
+      setTrainerEmail('');
+      setNewTrainerGymId('');
+      fetchTrainersAndStudents();
+    } catch (err) {
+      setTrainerInviteError(err instanceof Error ? err.message : 'Falha ao enviar convite');
+    } finally {
+      setSendingTrainerInvite(false);
+    }
+  };
 
-    await apiFetch('/api/trainers', {
-      method: 'POST',
-      body: JSON.stringify({
-        name: trainerName,
-        email: trainerEmail,
-        password: tempPassword,
-        gymId: assignedGymId,
-        inviteCode: `TRN-${trainerName.toUpperCase().replace(/\s+/g, '')}`
-      })
-    });
-    setSentEmailModal({
-      to: trainerEmail,
-      pass: tempPassword
-    });
-    setShowTrainerModal(false);
-    setTrainerName('');
-    setTrainerEmail('');
-    setNewTrainerGymId('');
-    fetchTrainersAndStudents();
+  const handleResendTrainerInvite = async (trainerId: string, trainerEmailAddress: string) => {
+    setTrainerInviteError('');
+    try {
+      const result = await apiFetch<{
+        temporaryPassword: string;
+        emailPreviewUrl?: string;
+        emailProvider?: string;
+      }>(`/api/trainers/${trainerId}/resend-invite`, { method: 'POST' });
+      setSentEmailModal({
+        to: trainerEmailAddress,
+        pass: result.temporaryPassword,
+        previewUrl: result.emailPreviewUrl,
+        provider: result.emailProvider
+      });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Falha ao reenviar convite');
+    }
   };
 
   const handleEditGymClick = (g: Gym) => {
@@ -440,6 +477,15 @@ export const AdminDashboard: React.FC = () => {
                     </select>
 
                     <button
+                      type="button"
+                      onClick={() => handleResendTrainerInvite(tr.id, tr.email)}
+                      className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 text-blue-600 dark:text-blue-400 font-bold text-xs border border-blue-200 dark:border-blue-800 flex items-center gap-1"
+                      title={t('resendInvite')}
+                    >
+                      <Mail className="w-4 h-4" />
+                    </button>
+
+                    <button
                       onClick={() => handleDeleteUserClick(tr)}
                       className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 text-rose-600 dark:text-rose-400 font-bold text-xs border border-rose-200 dark:border-rose-800 flex items-center gap-1"
                       title="Excluir Treinador"
@@ -640,6 +686,10 @@ export const AdminDashboard: React.FC = () => {
                 </select>
               </div>
 
+              {trainerInviteError && (
+                <p className="text-rose-600 dark:text-rose-400 font-semibold">{trainerInviteError}</p>
+              )}
+
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
@@ -650,9 +700,10 @@ export const AdminDashboard: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-blue-600 text-white font-bold shadow"
+                  disabled={sendingTrainerInvite}
+                  className="px-5 py-2 rounded-xl bg-blue-600 text-white font-bold shadow disabled:opacity-60"
                 >
-                  Enviar Convite
+                  {sendingTrainerInvite ? 'Enviando...' : 'Enviar Convite'}
                 </button>
               </div>
             </form>
@@ -660,7 +711,6 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* SENT EMAIL MODAL (SIMULATED CONVITE) */}
       {sentEmailModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
           <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 space-y-4 text-xs shadow-2xl text-center">
@@ -675,6 +725,21 @@ export const AdminDashboard: React.FC = () => {
               <div>E-mail: {sentEmailModal.to}</div>
               <div>Senha Provisória: {sentEmailModal.pass}</div>
             </div>
+            {sentEmailModal.previewUrl && (
+              <a
+                href={sentEmailModal.previewUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="block w-full py-2.5 rounded-xl bg-amber-500 text-slate-950 font-bold shadow"
+              >
+                Abrir e-mail enviado (preview de teste)
+              </a>
+            )}
+            {sentEmailModal.provider === 'ethereal' && (
+              <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                Sem provedor de e-mail configurado: esta mensagem foi capturada no Ethereal. Configure RESEND_API_KEY ou SMTP no backend para entrega real.
+              </p>
+            )}
             <button
               onClick={() => setSentEmailModal(null)}
               className="w-full py-2.5 rounded-xl bg-blue-600 text-white font-bold shadow"

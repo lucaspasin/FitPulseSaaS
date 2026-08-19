@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../context/LanguageContext.js';
+import { ExercisePerformance, formatLoggedSets, LoggedSet, parsePrescribedSetCount } from '../types/workoutLog.js';
 import {
   Calendar as CalendarIcon,
   Flame,
@@ -69,8 +70,23 @@ interface ScheduleViewerProps {
     dailyCalendar?: DailyCalendarItem[];
     active?: boolean;
   };
-  onLogWorkout?: (workoutTitle: string, completedExercises: string[]) => void;
+  onLogWorkout?: (workoutTitle: string, completedExercises: string[], exercisePerformances: ExercisePerformance[]) => void;
 }
+
+type SetDraft = { weightKg: string; reps: string };
+
+const emptySets = (setsReps: string): SetDraft[] =>
+  Array.from({ length: parsePrescribedSetCount(setsReps) }, () => ({ weightKg: '', reps: '' }));
+
+const toLoggedSets = (sets: SetDraft[]): LoggedSet[] =>
+  sets.map((set) => {
+    const weight = set.weightKg.trim() === '' ? undefined : Number(set.weightKg);
+    const reps = set.reps.trim() === '' ? undefined : Number(set.reps);
+    const logged: LoggedSet = {};
+    if (weight != null && Number.isFinite(weight)) logged.weightKg = weight;
+    if (reps != null && Number.isFinite(reps)) logged.reps = reps;
+    return logged;
+  });
 
 export const ScheduleViewer: React.FC<ScheduleViewerProps> = ({ schedule, onLogWorkout }) => {
   const { t } = useLanguage();
@@ -87,19 +103,50 @@ export const ScheduleViewer: React.FC<ScheduleViewerProps> = ({ schedule, onLogW
 
   const [activeWorkoutIdx, setActiveWorkoutIdx] = useState<number>(getInitialWorkoutIndex());
   const [completedExercises, setCompletedExercises] = useState<Record<string, boolean>>({});
+  const [exerciseLogs, setExerciseLogs] = useState<Record<string, SetDraft[]>>({});
   const [loggedSuccess, setLoggedSuccess] = useState(false);
 
   const activeWorkout = schedule.workouts?.[activeWorkoutIdx] || schedule.workouts?.[0];
 
-  const toggleExercise = (name: string) => {
-    setCompletedExercises(prev => ({ ...prev, [name]: !prev[name] }));
+  const exerciseKey = (exIdx: number, name: string) => `${exIdx}::${name}`;
+
+  const getSets = (key: string, setsReps: string) => exerciseLogs[key] ?? emptySets(setsReps);
+
+  const updateSet = (key: string, setsReps: string, setIdx: number, field: keyof SetDraft, value: string) => {
+    setExerciseLogs((prev) => {
+      const current = prev[key] ?? emptySets(setsReps);
+      return {
+        ...prev,
+        [key]: current.map((set, idx) => (idx === setIdx ? { ...set, [field]: value } : set))
+      };
+    });
+  };
+
+  const toggleExercise = (key: string) => {
+    setCompletedExercises(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const resetWorkoutProgress = () => {
+    setCompletedExercises({});
+    setExerciseLogs({});
   };
 
   const handleFinishWorkout = () => {
     if (!activeWorkout) return;
-    const doneList = Object.keys(completedExercises).filter(k => completedExercises[k]);
+    const performances: ExercisePerformance[] = [];
+    (activeWorkout.exercises || []).forEach((ex, exIdx) => {
+      const key = exerciseKey(exIdx, ex.name);
+      if (!completedExercises[key]) return;
+      performances.push({
+        name: ex.name,
+        targetSetsReps: ex.setsReps,
+        sets: toLoggedSets(getSets(key, ex.setsReps))
+      });
+    });
+
+    const doneList = performances.map((item) => item.name);
     if (onLogWorkout) {
-      onLogWorkout(activeWorkout.title, doneList);
+      onLogWorkout(activeWorkout.title, doneList, performances);
       setLoggedSuccess(true);
       setTimeout(() => setLoggedSuccess(false), 4000);
     }
@@ -161,7 +208,7 @@ export const ScheduleViewer: React.FC<ScheduleViewerProps> = ({ schedule, onLogW
                 key={w.id || idx}
                 onClick={() => {
                   setActiveWorkoutIdx(idx);
-                  setCompletedExercises({});
+                  resetWorkoutProgress();
                 }}
                 className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 ${
                   activeWorkoutIdx === idx
@@ -189,56 +236,116 @@ export const ScheduleViewer: React.FC<ScheduleViewerProps> = ({ schedule, onLogW
 
             <div className="space-y-4">
               {activeWorkout.exercises?.map((ex, exIdx) => {
-                const isDone = !!completedExercises[ex.name];
+                const key = exerciseKey(exIdx, ex.name);
+                const isDone = !!completedExercises[key];
+                const sets = getSets(key, ex.setsReps);
+                const summary = formatLoggedSets(toLoggedSets(sets));
 
                 return (
                   <div
-                    key={exIdx}
-                    onClick={() => toggleExercise(ex.name)}
-                    className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center gap-4 ${
+                    key={key}
+                    className={`p-4 rounded-2xl border transition-all ${
                       isDone
                         ? 'bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800/80'
                         : 'bg-slate-50/80 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800/80 hover:border-blue-500 dark:hover:border-blue-400'
                     }`}
                   >
-                    {/* Checkbox */}
-                    <div className={`p-1.5 rounded-xl border shrink-0 transition-colors ${
-                      isDone
-                        ? 'bg-emerald-600 border-emerald-600 text-white'
-                        : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-transparent'
-                    }`}>
-                      <CheckCircle2 className="w-5 h-5" />
+                    <div className="flex items-center gap-4">
+                      <button
+                        type="button"
+                        onClick={() => toggleExercise(key)}
+                        aria-pressed={isDone}
+                        aria-label={isDone ? t('exerciseDone') : t('completeWorkout')}
+                        className={`p-1.5 rounded-xl border shrink-0 transition-colors ${
+                          isDone
+                            ? 'bg-emerald-600 border-emerald-600 text-white'
+                            : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-transparent hover:border-emerald-400'
+                        }`}
+                      >
+                        <CheckCircle2 className="w-5 h-5" />
+                      </button>
+
+                      {ex.gifUrl ? (
+                        <div className={`rounded-xl bg-slate-950 overflow-hidden shrink-0 border border-slate-200 dark:border-slate-800 transition-all ${
+                          isDone ? 'w-10 h-10' : 'w-16 h-16'
+                        }`}>
+                          <img src={ex.gifUrl} alt={ex.name} className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className={`rounded-xl bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 shrink-0 flex items-center justify-center text-blue-600 dark:text-blue-400 transition-all ${
+                          isDone ? 'w-10 h-10' : 'w-12 h-12'
+                        }`}>
+                          <Dumbbell className="w-5 h-5" />
+                        </div>
+                      )}
+
+                      <div className="flex-1 min-w-0 space-y-0.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className={`font-extrabold text-sm truncate ${
+                            isDone ? 'line-through text-slate-500 dark:text-slate-400' : 'text-slate-900 dark:text-white'
+                          }`}>
+                            {ex.name}
+                          </h4>
+                          <span className="px-2.5 py-0.5 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-bold text-xs shrink-0">
+                            {ex.setsReps}
+                          </span>
+                        </div>
+
+                        {isDone ? (
+                          <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 truncate">
+                            {summary || t('exerciseDone')}
+                          </p>
+                        ) : (
+                          ex.notes && (
+                            <p className="text-slate-500 dark:text-slate-400 text-[11px] italic line-clamp-2">
+                              "{ex.notes}"
+                            </p>
+                          )
+                        )}
+                      </div>
                     </div>
 
-                    {/* GIF Image Preview */}
-                    {ex.gifUrl ? (
-                      <div className="w-16 h-16 rounded-xl bg-slate-950 overflow-hidden shrink-0 border border-slate-200 dark:border-slate-800">
-                        <img src={ex.gifUrl} alt={ex.name} className="w-full h-full object-cover" />
+                    <div className={`grid transition-[grid-template-rows,opacity,margin] duration-300 ease-out ${
+                      isDone ? 'grid-rows-[0fr] opacity-0 mt-0 pointer-events-none' : 'grid-rows-[1fr] opacity-100 mt-3'
+                    }`}>
+                      <div className="overflow-hidden">
+                        <div className="space-y-2">
+                          {sets.map((set, setIdx) => (
+                            <div
+                              key={`${key}-set-${setIdx}`}
+                              className="flex items-center gap-2 sm:gap-3"
+                            >
+                              <span className="w-16 shrink-0 text-[10px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                {t('setLabel')} {setIdx + 1}
+                              </span>
+                              <label className="flex-1 flex items-center gap-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-2.5 py-2">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase">{t('weightKg')}</span>
+                                <input
+                                  type="number"
+                                  inputMode="decimal"
+                                  min="0"
+                                  step="0.5"
+                                  value={set.weightKg}
+                                  onChange={(e) => updateSet(key, ex.setsReps, setIdx, 'weightKg', e.target.value)}
+                                  className="w-full bg-transparent text-sm font-bold text-slate-900 dark:text-white outline-none"
+                                />
+                              </label>
+                              <label className="flex-1 flex items-center gap-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-2.5 py-2">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase">{t('repsShort')}</span>
+                                <input
+                                  type="number"
+                                  inputMode="numeric"
+                                  min="0"
+                                  step="1"
+                                  value={set.reps}
+                                  onChange={(e) => updateSet(key, ex.setsReps, setIdx, 'reps', e.target.value)}
+                                  className="w-full bg-transparent text-sm font-bold text-slate-900 dark:text-white outline-none"
+                                />
+                              </label>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    ) : (
-                      <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 shrink-0 flex items-center justify-center text-blue-600 dark:text-blue-400">
-                        <Dumbbell className="w-5 h-5" />
-                      </div>
-                    )}
-
-                    {/* Content */}
-                    <div className="flex-1 space-y-0.5">
-                      <div className="flex items-center justify-between">
-                        <h4 className={`font-extrabold text-sm ${
-                          isDone ? 'line-through text-slate-500 dark:text-slate-400' : 'text-slate-900 dark:text-white'
-                        }`}>
-                          {ex.name}
-                        </h4>
-                        <span className="px-2.5 py-0.5 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-bold text-xs">
-                          {ex.setsReps}
-                        </span>
-                      </div>
-
-                      {ex.notes && (
-                        <p className="text-slate-500 dark:text-slate-400 text-[11px] italic line-clamp-2">
-                          "{ex.notes}"
-                        </p>
-                      )}
                     </div>
                   </div>
                 );

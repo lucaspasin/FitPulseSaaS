@@ -6,7 +6,12 @@ param(
   [string]$ContainerAppName = "ca-fitpulse-api",
   [string]$ContainerEnvName = "cae-fitpulse-staging",
   [string]$FrontendOrigin = "https://red-mushroom-0d8b1010f.7.azurestaticapps.net",
-  [string]$Image = "ghcr.io/lucaspasin/fitpulse-api:latest"
+  [string]$Image = "ghcr.io/lucaspasin/fitpulse-api:latest",
+  [string]$SmtpHost = "",
+  [string]$SmtpPort = "587",
+  [string]$SmtpUser = "",
+  [string]$SmtpPass = "",
+  [string]$MailFrom = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -50,6 +55,29 @@ az containerapp env create `
   --location $Location | Out-Null
 
 Write-Host "Creating Container App (min replicas 0)..."
+$secrets = @("database-url=$DatabaseUrl", "jwt-secret=$jwtSecret")
+$envVars = @(
+  "NODE_ENV=production",
+  "PORT=4000",
+  "SEED_ON_START=true",
+  "FRONTEND_ORIGIN=$FrontendOrigin",
+  "APP_PUBLIC_URL=$FrontendOrigin",
+  "DATABASE_URL=secretref:database-url",
+  "JWT_SECRET=secretref:jwt-secret"
+)
+
+if ($SmtpHost -and $SmtpUser -and $SmtpPass) {
+  $secrets += "smtp-pass=$SmtpPass"
+  $from = if ($MailFrom) { $MailFrom } else { "FitPulse <$SmtpUser>" }
+  $envVars += @(
+    "SMTP_HOST=$SmtpHost",
+    "SMTP_PORT=$SmtpPort",
+    "SMTP_USER=$SmtpUser",
+    "SMTP_PASS=secretref:smtp-pass",
+    "MAIL_FROM=$from"
+  )
+}
+
 az containerapp create `
   --name $ContainerAppName `
   --resource-group $ResourceGroup `
@@ -61,14 +89,8 @@ az containerapp create `
   --max-replicas 3 `
   --cpu 0.25 `
   --memory 0.5Gi `
-  --secrets "database-url=$DatabaseUrl" "jwt-secret=$jwtSecret" `
-  --env-vars `
-    "NODE_ENV=production" `
-    "PORT=4000" `
-    "SEED_ON_START=true" `
-    "FRONTEND_ORIGIN=$FrontendOrigin" `
-    "DATABASE_URL=secretref:database-url" `
-    "JWT_SECRET=secretref:jwt-secret"
+  --secrets $secrets `
+  --env-vars $envVars
 
 $apiFqdn = az containerapp show --name $ContainerAppName --resource-group $ResourceGroup --query properties.configuration.ingress.fqdn -o tsv
 $apiUrl = "https://$apiFqdn"

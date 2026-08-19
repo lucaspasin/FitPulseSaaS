@@ -7,6 +7,7 @@ import {
   PaymentConfig,
   StudentPayment,
   WorkoutExecutionLog,
+  ExercisePerformance,
   Role,
   UserStatus,
   PixKeyType
@@ -431,6 +432,31 @@ export class PrismaStorageAdapter implements IStorageAdapter {
     return this.mapSchedule(row);
   }
 
+  private mapExecutionLog(row: {
+    id: string;
+    scheduleId: string;
+    studentId: string;
+    workoutTitle: string;
+    completedExercises: string[];
+    exercisePerformances: Prisma.JsonValue | null;
+    completedAt: Date;
+    notes: string | null;
+  }): WorkoutExecutionLog {
+    const performances = row.exercisePerformances
+      ? asJson<ExercisePerformance[]>(row.exercisePerformances, [])
+      : undefined;
+    return {
+      id: row.id,
+      scheduleId: row.scheduleId,
+      studentId: row.studentId,
+      workoutTitle: row.workoutTitle,
+      completedExercises: row.completedExercises,
+      exercisePerformances: performances?.length ? performances : undefined,
+      completedAt: toIso(row.completedAt),
+      notes: row.notes ?? undefined
+    };
+  }
+
   async logExecution(logData: Omit<WorkoutExecutionLog, 'id'>): Promise<WorkoutExecutionLog> {
     const row = await this.prisma.workoutExecutionLog.create({
       data: {
@@ -439,19 +465,14 @@ export class PrismaStorageAdapter implements IStorageAdapter {
         studentId: logData.studentId,
         workoutTitle: logData.workoutTitle,
         completedExercises: logData.completedExercises,
+        exercisePerformances: logData.exercisePerformances
+          ? toJson(logData.exercisePerformances)
+          : undefined,
         completedAt: new Date(logData.completedAt),
         notes: logData.notes
       }
     });
-    return {
-      id: row.id,
-      scheduleId: row.scheduleId,
-      studentId: row.studentId,
-      workoutTitle: row.workoutTitle,
-      completedExercises: row.completedExercises,
-      completedAt: toIso(row.completedAt),
-      notes: row.notes ?? undefined
-    };
+    return this.mapExecutionLog(row);
   }
 
   async findExecutionLogs(studentId: string): Promise<WorkoutExecutionLog[]> {
@@ -459,15 +480,7 @@ export class PrismaStorageAdapter implements IStorageAdapter {
       where: { studentId },
       orderBy: { completedAt: 'desc' }
     });
-    return rows.map((row) => ({
-      id: row.id,
-      scheduleId: row.scheduleId,
-      studentId: row.studentId,
-      workoutTitle: row.workoutTitle,
-      completedExercises: row.completedExercises,
-      completedAt: toIso(row.completedAt),
-      notes: row.notes ?? undefined
-    }));
+    return rows.map((row) => this.mapExecutionLog(row));
   }
 
   async getTrainerPaymentConfig(trainerId: string): Promise<PaymentConfig | null> {

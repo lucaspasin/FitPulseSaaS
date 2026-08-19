@@ -17,6 +17,7 @@ import {
 } from './services/Services.js';
 import { seedIfEmpty } from './seed/bootstrap.js';
 import { errorHandler } from './http/asyncHandler.js';
+import { createEmailService } from './mail/createEmailService.js';
 
 dotenv.config();
 
@@ -54,7 +55,6 @@ const gymService = new GymService(storage);
 const scheduleService = new ScheduleService(storage);
 const exerciseService = new ExerciseService(storage);
 const paymentService = new PaymentService(storage);
-const userService = new UserService(storage, passwordHasher);
 const accessPolicy = new AccessPolicy(storage);
 
 const app = express();
@@ -77,25 +77,27 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '1mb' }));
 
-app.use('/api', createApiRouter({
-  storage,
-  authService,
-  gymService,
-  scheduleService,
-  exerciseService,
-  paymentService,
-  userService,
-  accessPolicy,
-  tokenService
-}));
-
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'FitPulse API', timestamp: new Date().toISOString() });
 });
 
-app.use(errorHandler);
-
 const start = async () => {
+  const emailService = await createEmailService();
+  const userService = new UserService(storage, passwordHasher, emailService);
+
+  app.use('/api', createApiRouter({
+    storage,
+    authService,
+    gymService,
+    scheduleService,
+    exerciseService,
+    paymentService,
+    userService,
+    accessPolicy,
+    tokenService
+  }));
+  app.use(errorHandler);
+
   await prisma.$connect();
   if (process.env.SEED_ON_START === 'true') {
     await seedIfEmpty(prisma, passwordHasher);

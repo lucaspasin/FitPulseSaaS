@@ -107,15 +107,16 @@ model Schedule {
 }
 
 model WorkoutExecutionLog {
-  id                 String   @id
-  scheduleId         String
-  schedule           Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  studentId          String
-  student            User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  workoutTitle       String
-  completedExercises String[]
-  completedAt        DateTime
-  notes              String?
+  id                   String   @id
+  scheduleId           String
+  schedule             Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  studentId            String
+  student              User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  workoutTitle         String
+  completedExercises   String[]
+  exercisePerformances Json?
+  completedAt          DateTime
+  notes                String?
 }
 
 model PaymentConfig {

@@ -148,6 +148,12 @@ export const translations: Record<Language, Record<string, string>> = {
     todayBadge: 'HOJE',
     scanQrCodeDesc: 'Escaneie o QR Code ou copie a Chave PIX abaixo para realizar o pagamento',
     copyPixKeyBtn: 'Copiar Chave PIX',
+    weightKg: 'Carga (kg)',
+    repsShort: 'Reps',
+    setLabel: 'Série',
+    exerciseDone: 'Concluído',
+    noWorkoutHistory: 'Nenhum treino registrado no histórico ainda.',
+    targetSets: 'Meta',
 
     // Navbar & Mode Switcher
     adminModeSwitch: 'Modo Admin (Trocar Vista):'
@@ -299,6 +305,12 @@ export const translations: Record<Language, Record<string, string>> = {
     todayBadge: 'TODAY',
     scanQrCodeDesc: 'Scan QR Code or copy PIX key below to complete payment',
     copyPixKeyBtn: 'Copy PIX Key',
+    weightKg: 'Weight (kg)',
+    repsShort: 'Reps',
+    setLabel: 'Set',
+    exerciseDone: 'Done',
+    noWorkoutHistory: 'No workouts logged in history yet.',
+    targetSets: 'Target',
 
     // Navbar & Mode Switcher
     adminModeSwitch: 'Admin Mode (Switch View):'

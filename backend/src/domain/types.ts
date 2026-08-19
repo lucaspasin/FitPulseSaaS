@@ -98,12 +98,24 @@ export interface Schedule {
   createdAt: string;
 }
 
+export interface LoggedSet {
+  weightKg?: number;
+  reps?: number;
+}
+
+export interface ExercisePerformance {
+  name: string;
+  targetSetsReps: string;
+  sets: LoggedSet[];
+}
+
 export interface WorkoutExecutionLog {
   id: string;
   scheduleId: string;
   studentId: string;
   workoutTitle: string;
   completedExercises: string[]; // exercise names or IDs completed
+  exercisePerformances?: ExercisePerformance[];
   completedAt: string;
   notes?: string;
 }

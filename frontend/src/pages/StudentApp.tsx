@@ -4,7 +4,8 @@ import { useAuth } from '../context/AuthContext.js';
 import { useLanguage } from '../context/LanguageContext.js';
 import { ScheduleViewer } from '../components/ScheduleViewer.js';
 import { PixPaymentWidget } from '../components/PixPaymentWidget.js';
-import { Dumbbell, History, QrCode, Sparkles, Archive, AlertOctagon, Lock } from 'lucide-react';
+import { Dumbbell, History, QrCode, Sparkles, Archive, Lock } from 'lucide-react';
+import { ExercisePerformance, formatLoggedSets } from '../types/workoutLog.js';
 
 export const StudentApp: React.FC = () => {
   const { user } = useAuth();
@@ -46,7 +47,11 @@ export const StudentApp: React.FC = () => {
     fetchHistory();
   }, [user]);
 
-  const handleLogWorkout = async (workoutTitle: string, completedExercises: string[]) => {
+  const handleLogWorkout = async (
+    workoutTitle: string,
+    completedExercises: string[],
+    exercisePerformances: ExercisePerformance[]
+  ) => {
     if (!user || !schedule) return;
     const newLog = {
       id: `log-${Date.now()}`,
@@ -54,6 +59,7 @@ export const StudentApp: React.FC = () => {
       studentId: user.id,
       workoutTitle,
       completedExercises,
+      exercisePerformances,
       completedAt: new Date().toISOString()
     };
 
@@ -187,22 +193,42 @@ export const StudentApp: React.FC = () => {
               {historyLogs.length > 0 ? (
                 <div className="space-y-3">
                   {historyLogs.map((log) => (
-                    <div key={log.id} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-1 text-xs">
+                    <div key={log.id} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
                       <div className="flex items-center justify-between font-bold text-slate-900 dark:text-white">
                         <span>{log.workoutTitle}</span>
                         <span className="text-slate-500 font-mono text-[10px]">
                           {new Date(log.completedAt).toLocaleDateString('pt-BR')}
                         </span>
                       </div>
-                      <p className="text-slate-700 dark:text-slate-300">
-                        <strong>{t('exercises')}:</strong> {log.completedExercises.join(', ') || 'All'}
-                      </p>
+                      {Array.isArray(log.exercisePerformances) && log.exercisePerformances.length > 0 ? (
+                        <ul className="space-y-2">
+                          {log.exercisePerformances.map((performance: ExercisePerformance, idx: number) => (
+                            <li key={`${log.id}-${idx}`} className="rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-3 py-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-extrabold text-slate-800 dark:text-slate-100">{performance.name}</span>
+                                {performance.targetSetsReps && (
+                                  <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                                    {t('targetSets')} {performance.targetSetsReps}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-1 text-slate-600 dark:text-slate-300 font-semibold">
+                                {formatLoggedSets(performance.sets)}
+                              </p>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-slate-700 dark:text-slate-300">
+                          <strong>{t('exercises')}:</strong> {log.completedExercises.join(', ') || 'All'}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
               ) : (
                 <p className="text-xs text-slate-500 text-center py-6">
-                  Nenhum treino registrado no histórico ainda.
+                  {t('noWorkoutHistory')}
                 </p>
               )}
             </div>

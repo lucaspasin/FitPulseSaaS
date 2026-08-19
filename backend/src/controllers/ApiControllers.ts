@@ -93,9 +93,26 @@ export function createApiRouter(deps: {
   }));
 
   router.post('/trainers', requireRole('ADMIN'), asyncHandler(async (req, res) => {
-    const { name, email, password, gymId, inviteCode } = req.body;
-    const result = await userService.createTrainer({ name, email, password, gymId, inviteCode });
-    res.status(201).json({ ...result.user, temporaryPassword: result.temporaryPassword });
+    const { name, email, gymId, inviteCode } = req.body;
+    const result = await userService.createTrainer({ name, email, gymId, inviteCode });
+    res.status(201).json({
+      ...result.user,
+      temporaryPassword: result.temporaryPassword,
+      emailSent: true,
+      emailProvider: result.email.provider,
+      emailPreviewUrl: result.email.previewUrl
+    });
+  }));
+
+  router.post('/trainers/:trainerId/resend-invite', requireRole('ADMIN'), asyncHandler(async (req, res) => {
+    const result = await userService.resendTrainerInvite(req.params.trainerId);
+    res.json({
+      ...result.user,
+      temporaryPassword: result.temporaryPassword,
+      emailSent: true,
+      emailProvider: result.email.provider,
+      emailPreviewUrl: result.email.previewUrl
+    });
   }));
 
   router.post('/gyms', requireRole('ADMIN'), asyncHandler(async (req, res) => {
