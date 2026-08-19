@@ -3,6 +3,14 @@ import { useAuth, Gym } from '../context/AuthContext.js';
 import { apiFetch } from '../api/client.js';
 import { useLanguage } from '../context/LanguageContext.js';
 import {
+  WEEKDAYS_PT,
+  WEEKDAY_I18N_KEYS,
+  defaultStrengthExercise,
+  inferWeekday,
+  resolveExercisePrescription,
+  type EffortType
+} from '../types/prescription.js';
+import {
   UserCheck,
   Users,
   Dumbbell,
@@ -243,8 +251,17 @@ export const TrainerDashboard: React.FC = () => {
         {
           id: `w-${Date.now()}`,
           title: 'Força 1 — Peito & Tríceps',
+          weekday: 'Segunda',
           exercises: [
-            { name: 'Supino Reto com Barra', setsReps: '4x8-10', notes: 'Execução controlada', gifUrl: 'https://upload.wikimedia.org/wikipedia/commons/4/4e/Bench-press-1.gif' }
+            {
+              name: 'Supino Reto com Barra',
+              setsCount: 4,
+              effortType: 'reps',
+              effortValue: '8-10',
+              setsReps: '4x8-10',
+              notes: 'Execução controlada',
+              gifUrl: 'https://upload.wikimedia.org/wikipedia/commons/4/4e/Bench-press-1.gif'
+            }
           ]
         }
       ],
@@ -262,9 +279,26 @@ export const TrainerDashboard: React.FC = () => {
 
   const handleSaveScheduleChanges = async () => {
     if (!editingScheduleData || !user) return;
+    const payload = {
+      ...editingScheduleData,
+      workouts: (editingScheduleData.workouts || []).map((w: any) => ({
+        ...w,
+        weekday: inferWeekday(w) || w.weekday || 'Segunda',
+        exercises: (w.exercises || []).map((ex: any) => {
+          const rx = resolveExercisePrescription(ex);
+          return {
+            ...ex,
+            setsCount: rx.setsCount,
+            effortType: rx.effortType,
+            effortValue: rx.effortValue,
+            setsReps: rx.label
+          };
+        })
+      }))
+    };
     await apiFetch('/api/schedules', {
       method: 'POST',
-      body: JSON.stringify(editingScheduleData)
+      body: JSON.stringify(payload)
     });
     alert(t('save'));
     setEditingScheduleData(null);
@@ -293,8 +327,8 @@ export const TrainerDashboard: React.FC = () => {
 
     const updatedWorkouts = [...editingScheduleData.workouts];
     updatedWorkouts[wIdx].exercises[exIdx] = {
+      ...defaultStrengthExercise(),
       name: foundEx.name,
-      setsReps: '3x10',
       notes: foundEx.instructions || foundEx.muscleGroup,
       gifUrl: foundEx.gifUrl || 'https://upload.wikimedia.org/wikipedia/commons/4/4e/Bench-press-1.gif'
     };
@@ -332,6 +366,25 @@ export const TrainerDashboard: React.FC = () => {
     if (!confirm(t('deleteExercise') + '?')) return;
     await apiFetch(`/api/exercises/${id}`, { method: 'DELETE' });
     fetchExercises();
+  };
+
+  const patchExercisePrescription = (
+    wIdx: number,
+    exIdx: number,
+    patch: { setsCount?: number; effortType?: EffortType; effortValue?: string }
+  ) => {
+    if (!editingScheduleData) return;
+    const updated = [...editingScheduleData.workouts];
+    const current = updated[wIdx].exercises[exIdx];
+    const rx = resolveExercisePrescription({ ...current, ...patch });
+    updated[wIdx].exercises[exIdx] = {
+      ...current,
+      setsCount: rx.setsCount,
+      effortType: rx.effortType,
+      effortValue: rx.effortValue,
+      setsReps: rx.label
+    };
+    setEditingScheduleData({ ...editingScheduleData, workouts: updated });
   };
 
   return (
@@ -1088,7 +1141,8 @@ export const TrainerDashboard: React.FC = () => {
                           const newWorkout = {
                             id: newId,
                             title: `Força ${editingScheduleData.workouts.length + 1} — Novo Treino`,
-                            exercises: [{ name: 'Novo Exercício', setsReps: '3x10', notes: '' }]
+                            weekday: WEEKDAYS_PT[Math.min(editingScheduleData.workouts.length, WEEKDAYS_PT.length - 1)],
+                            exercises: [defaultStrengthExercise()]
                           };
                           setEditingScheduleData({
                             ...editingScheduleData,
@@ -1112,9 +1166,9 @@ export const TrainerDashboard: React.FC = () => {
                           <div className="p-3 bg-slate-50 dark:bg-slate-950 flex items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800">
                             <div
                               onClick={() => toggleWorkoutCollapse(wKey)}
-                              className="flex items-center gap-2 cursor-pointer flex-1"
+                              className="flex items-center gap-2 cursor-pointer flex-1 min-w-0"
                             >
-                              {isWOpen ? <ChevronUp className="w-4 h-4 text-blue-500" /> : <ChevronDown className="w-4 h-4 text-blue-500" />}
+                              {isWOpen ? <ChevronUp className="w-4 h-4 text-blue-500 shrink-0" /> : <ChevronDown className="w-4 h-4 text-blue-500 shrink-0" />}
                               <input
                                 type="text"
                                 value={w.title}
@@ -1127,6 +1181,24 @@ export const TrainerDashboard: React.FC = () => {
                                 className="font-extrabold text-xs bg-white dark:bg-slate-900 px-3 py-1 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white w-full max-w-md"
                               />
                             </div>
+
+                            <select
+                              value={inferWeekday(w) || ''}
+                              onChange={(e) => {
+                                const updated = [...editingScheduleData.workouts];
+                                updated[wIdx].weekday = e.target.value;
+                                setEditingScheduleData({ ...editingScheduleData, workouts: updated });
+                              }}
+                              className="px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white font-bold text-[11px] shrink-0"
+                              aria-label={t('weekDay')}
+                            >
+                              <option value="">{t('weekDay')}</option>
+                              {WEEKDAYS_PT.map((day) => (
+                                <option key={day} value={day}>
+                                  {t(WEEKDAY_I18N_KEYS[day])}
+                                </option>
+                              ))}
+                            </select>
 
                             <button
                               type="button"
@@ -1160,7 +1232,7 @@ export const TrainerDashboard: React.FC = () => {
                                     </select>
                                   </div>
 
-                                  <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 items-center">
+                                  <div className="space-y-2">
                                     <input
                                       type="text"
                                       value={ex.name}
@@ -1170,44 +1242,80 @@ export const TrainerDashboard: React.FC = () => {
                                         updated[wIdx].exercises[exIdx].name = e.target.value;
                                         setEditingScheduleData({ ...editingScheduleData, workouts: updated });
                                       }}
-                                      className="font-bold px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 sm:col-span-1"
+                                      className="w-full font-bold px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
                                     />
 
-                                    <input
-                                      type="text"
-                                      value={ex.setsReps}
-                                      placeholder={t('setsReps')}
-                                      onChange={(e) => {
-                                        const updated = [...editingScheduleData.workouts];
-                                        updated[wIdx].exercises[exIdx].setsReps = e.target.value;
-                                        setEditingScheduleData({ ...editingScheduleData, workouts: updated });
-                                      }}
-                                      className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
-                                    />
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                      <label className="flex flex-col gap-1">
+                                        <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500">{t('seriesCount')}</span>
+                                        <input
+                                          type="number"
+                                          min={1}
+                                          max={12}
+                                          value={resolveExercisePrescription(ex).setsCount}
+                                          onChange={(e) => patchExercisePrescription(wIdx, exIdx, { setsCount: Number(e.target.value) })}
+                                          className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
+                                        />
+                                      </label>
+                                      <label className="flex flex-col gap-1">
+                                        <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500">{t('effortTypeLabel')}</span>
+                                        <select
+                                          value={resolveExercisePrescription(ex).effortType}
+                                          onChange={(e) => {
+                                            const effortType = e.target.value as EffortType;
+                                            const current = resolveExercisePrescription(ex);
+                                            patchExercisePrescription(wIdx, exIdx, {
+                                              effortType,
+                                              effortValue: effortType === 'time'
+                                                ? (/\d+\s*s/i.test(current.effortValue) ? current.effortValue : '30s')
+                                                : (/\d+\s*s/i.test(current.effortValue) ? '10' : current.effortValue)
+                                            });
+                                          }}
+                                          className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
+                                        >
+                                          <option value="reps">{t('effortReps')}</option>
+                                          <option value="time">{t('effortTime')}</option>
+                                        </select>
+                                      </label>
+                                      <label className="flex flex-col gap-1">
+                                        <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500">
+                                          {resolveExercisePrescription(ex).effortType === 'time' ? t('effortValueTime') : t('effortValueReps')}
+                                        </span>
+                                        <input
+                                          type="text"
+                                          value={resolveExercisePrescription(ex).effortValue}
+                                          placeholder={resolveExercisePrescription(ex).effortType === 'time' ? '40s' : '8-10'}
+                                          onChange={(e) => patchExercisePrescription(wIdx, exIdx, { effortValue: e.target.value })}
+                                          className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
+                                        />
+                                      </label>
+                                    </div>
 
-                                    <input
-                                      type="text"
-                                      value={ex.notes || ''}
-                                      placeholder={t('notes')}
-                                      onChange={(e) => {
-                                        const updated = [...editingScheduleData.workouts];
-                                        updated[wIdx].exercises[exIdx].notes = e.target.value;
-                                        setEditingScheduleData({ ...editingScheduleData, workouts: updated });
-                                      }}
-                                      className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
-                                    />
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
+                                      <input
+                                        type="text"
+                                        value={ex.notes || ''}
+                                        placeholder={t('notes')}
+                                        onChange={(e) => {
+                                          const updated = [...editingScheduleData.workouts];
+                                          updated[wIdx].exercises[exIdx].notes = e.target.value;
+                                          setEditingScheduleData({ ...editingScheduleData, workouts: updated });
+                                        }}
+                                        className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
+                                      />
 
-                                    <input
-                                      type="text"
-                                      value={ex.gifUrl || ''}
-                                      placeholder="URL GIF"
-                                      onChange={(e) => {
-                                        const updated = [...editingScheduleData.workouts];
-                                        updated[wIdx].exercises[exIdx].gifUrl = e.target.value;
-                                        setEditingScheduleData({ ...editingScheduleData, workouts: updated });
-                                      }}
-                                      className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
-                                    />
+                                      <input
+                                        type="text"
+                                        value={ex.gifUrl || ''}
+                                        placeholder="URL GIF"
+                                        onChange={(e) => {
+                                          const updated = [...editingScheduleData.workouts];
+                                          updated[wIdx].exercises[exIdx].gifUrl = e.target.value;
+                                          setEditingScheduleData({ ...editingScheduleData, workouts: updated });
+                                        }}
+                                        className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
+                                      />
+                                    </div>
 
                                     <div className="flex justify-end">
                                       <button
@@ -1227,7 +1335,7 @@ export const TrainerDashboard: React.FC = () => {
                                 type="button"
                                 onClick={() => {
                                   const updated = [...editingScheduleData.workouts];
-                                  updated[wIdx].exercises.push({ name: 'Novo Exercício', setsReps: '3x10', notes: '' });
+                                  updated[wIdx].exercises.push(defaultStrengthExercise());
                                   setEditingScheduleData({ ...editingScheduleData, workouts: updated });
                                 }}
                                 className="text-blue-600 dark:text-blue-400 font-bold text-[11px] hover:underline block pt-1"
