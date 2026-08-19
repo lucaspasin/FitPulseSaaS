@@ -1,0 +1,72 @@
+{
+  "project": "FitPulse SaaS",
+  "github": {
+    "repo": "lucaspasin/FitPulseSaaS",
+    "defaultBranch": "main"
+  },
+  "local": {
+    "frontend": "http://localhost:3000",
+    "api": "http://localhost:4000",
+    "postgres": {
+      "host": "localhost",
+      "port": 5432,
+      "database": "fitpulse",
+      "user": "fitpulse",
+      "service": "postgresql-x64-16"
+    },
+    "envFile": "backend/.env",
+    "devCommand": "npm run dev"
+  },
+  "production": {
+    "frontend": "https://red-mushroom-0d8b1010f.7.azurestaticapps.net",
+    "api": "https://ca-fitpulse-api.happysand-f2ba5c74.brazilsouth.azurecontainerapps.io",
+    "health": "https://ca-fitpulse-api.happysand-f2ba5c74.brazilsouth.azurecontainerapps.io/health"
+  },
+  "azure": {
+    "subscriptionName": "Azure subscription 1",
+    "subscriptionId": "912abbc4-6726-4153-9f42-53cbe3380dfa",
+    "location": "brazilsouth",
+    "resourceGroup": "rg-fitpulse-staging",
+    "containerApp": "ca-fitpulse-api",
+    "containerEnv": "cae-fitpulse-staging",
+    "staticWebApp": "red-mushroom-0d8b1010f",
+    "cliWindows": "C:\\Program Files\\Microsoft SDKs\\Azure\\CLI2\\wbin\\az.cmd",
+    "secrets": ["database-url", "jwt-secret", "smtp-pass"],
+    "containerEnvVarNames": [
+      "NODE_ENV",
+      "PORT",
+      "SEED_ON_START",
+      "FRONTEND_ORIGIN",
+      "APP_PUBLIC_URL",
+      "DATABASE_URL",
+      "JWT_SECRET",
+      "SMTP_HOST",
+      "SMTP_PORT",
+      "SMTP_USER",
+      "SMTP_PASS",
+      "MAIL_FROM"
+    ]
+  },
+  "neon": {
+    "database": "neondb",
+    "pooledHost": "ep-jolly-salad-ayecdh74-pooler.c-5.us-east-2.aws.neon.tech",
+    "region": "us-east-2",
+    "notes": "Connection string (with password) lives in Azure secret database-url and is never stored here. Prisma migrate deploy on API startup applies pending migrations."
+  },
+  "email": {
+    "from": "FitPulse <fitpulsesaas@gmail.com>",
+    "smtpHost": "smtp.gmail.com",
+    "smtpPort": 587,
+    "smtpUser": "fitpulsesaas@gmail.com",
+    "localPassEnv": "SMTP_PASS in backend/.env (Google App Password, not the Gmail login)",
+    "azureSecret": "smtp-pass"
+  },
+  "images": {
+    "api": "ghcr.io/lucaspasin/fitpulse-api:latest"
+  },
+  "behavior": {
+    "seedOnStart": "SEED_ON_START=true only inserts demo data when the users table is empty. It does not wipe Neon or local Postgres on restart.",
+    "localVsProdData": "Local Postgres and Neon are separate. Dev accounts/workouts do not appear in production.",
+    "inProgressWorkout": "Unchecked sets live in the browser until Concluir Treino; then they persist as WorkoutExecutionLog.exercisePerformances."
+  }
+}
