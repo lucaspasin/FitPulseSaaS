@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch, apiFetchOrNull } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
 import { useLanguage } from '../context/LanguageContext.js';
 import { ScheduleViewer } from '../components/ScheduleViewer.js';
@@ -18,82 +19,24 @@ export const StudentApp: React.FC = () => {
 
   const fetchActiveSchedule = async () => {
     if (!user) return;
-    try {
-      const res = await fetch(`/api/students/${user.id}/schedules/active`);
-      const contentType = res.headers.get('content-type');
-      if (res.ok && contentType && contentType.includes('application/json')) {
-        setSchedule(await res.json());
-        setLoading(false);
-        return;
-      }
-    } catch (err) {
-      console.warn('Using client-side active schedule fallback:', err);
-    }
-
-    const localSchedulesRaw = localStorage.getItem('fitpulse_schedules');
-    if (localSchedulesRaw) {
-      const parsed = JSON.parse(localSchedulesRaw);
-      const active = parsed.find((s: any) => (s.studentId === user.id || user.role === 'STUDENT') && s.active) || parsed[0];
-      setSchedule(active || null);
-    }
+    const active = await apiFetchOrNull<any>(`/api/students/${user.id}/schedules/active`);
+    setSchedule(active);
     setLoading(false);
   };
 
   const fetchAllSchedules = async () => {
     if (!user) return;
-    try {
-      const res = await fetch(`/api/students/${user.id}/schedules`);
-      const contentType = res.headers.get('content-type');
-      if (res.ok && contentType && contentType.includes('application/json')) {
-        setAllSchedules(await res.json());
-        return;
-      }
-    } catch (err) {
-      console.warn('Using client-side schedules fallback:', err);
-    }
-
-    const localSchedulesRaw = localStorage.getItem('fitpulse_schedules');
-    if (localSchedulesRaw) {
-      setAllSchedules(JSON.parse(localSchedulesRaw));
-    }
+    setAllSchedules(await apiFetch<any[]>(`/api/students/${user.id}/schedules`));
   };
 
   const fetchPayments = async () => {
     if (!user) return;
-    try {
-      const res = await fetch(`/api/students/${user.id}/payments`);
-      const contentType = res.headers.get('content-type');
-      if (res.ok && contentType && contentType.includes('application/json')) {
-        setPayments(await res.json());
-        return;
-      }
-    } catch (err) {
-      console.warn('Using client-side payments fallback:', err);
-    }
-
-    const localPaymentsRaw = localStorage.getItem('fitpulse_payments');
-    if (localPaymentsRaw) {
-      setPayments(JSON.parse(localPaymentsRaw));
-    }
+    setPayments(await apiFetch<any[]>(`/api/students/${user.id}/payments`));
   };
 
   const fetchHistory = async () => {
     if (!user) return;
-    try {
-      const res = await fetch(`/api/students/${user.id}/execution-logs`);
-      const contentType = res.headers.get('content-type');
-      if (res.ok && contentType && contentType.includes('application/json')) {
-        setHistoryLogs(await res.json());
-        return;
-      }
-    } catch (err) {
-      console.warn('Using client-side history fallback:', err);
-    }
-
-    const localLogsRaw = localStorage.getItem('fitpulse_execution_logs');
-    if (localLogsRaw) {
-      setHistoryLogs(JSON.parse(localLogsRaw));
-    }
+    setHistoryLogs(await apiFetch<any[]>(`/api/students/${user.id}/execution-logs`));
   };
 
   useEffect(() => {
@@ -114,25 +57,11 @@ export const StudentApp: React.FC = () => {
       completedAt: new Date().toISOString()
     };
 
-    try {
-      const res = await fetch('/api/schedules/execution-logs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newLog)
-      });
-      const contentType = res.headers.get('content-type');
-      if (res.ok && contentType && contentType.includes('application/json')) {
-        fetchHistory();
-        return;
-      }
-    } catch (err) {
-      console.warn('Saving execution log to client-side storage:', err);
-    }
-
-    const existingLogs = JSON.parse(localStorage.getItem('fitpulse_execution_logs') || '[]');
-    const updated = [newLog, ...existingLogs];
-    localStorage.setItem('fitpulse_execution_logs', JSON.stringify(updated));
-    setHistoryLogs(updated);
+    await apiFetch('/api/schedules/execution-logs', {
+      method: 'POST',
+      body: JSON.stringify(newLog)
+    });
+    fetchHistory();
   };
 
   const currentPayment = payments[0] || {

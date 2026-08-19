@@ -1,30 +1,35 @@
-import jwt from 'jsonwebtoken';
-import { FileStorageAdapter } from '../repositories/StorageAdapter.js';
+import { IStorageAdapter } from '../repositories/Interfaces.js';
+import { IPasswordHasher } from '../security/IPasswordHasher.js';
+import { ITokenService } from '../security/ITokenService.js';
 import { User, Gym, Exercise, Schedule, PaymentConfig, StudentPayment, WorkoutExecutionLog } from '../domain/types.js';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'fitpulse_super_secret_jwt_key_2026';
+import { toPublicUser, PublicUser } from '../domain/publicUser.js';
+import { ForbiddenError, NotFoundError } from '../http/HttpError.js';
 
 export class AuthService {
-  constructor(private storage: FileStorageAdapter) {}
+  constructor(
+    private readonly storage: IStorageAdapter,
+    private readonly passwordHasher: IPasswordHasher,
+    private readonly tokenService: ITokenService
+  ) {}
 
-  async login(email: string, passwordHash: string) {
+  async login(email: string, password: string) {
     const user = await this.storage.findUserByEmail(email);
-    if (!user || user.passwordHash !== passwordHash) {
+    if (!user || !(await this.passwordHasher.compare(password, user.passwordHash))) {
       throw new Error('Invalid email or password');
     }
-    const token = jwt.sign(
-      { userId: user.id, role: user.role, gymId: user.gymId },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-    const gym = await this.storage.findGymById(user.gymId);
-    return { token, user, gym };
+    const token = this.tokenService.sign({
+      userId: user.id,
+      role: user.role,
+      gymId: user.gymId
+    });
+    const gym = user.gymId ? await this.storage.findGymById(user.gymId) : null;
+    return { token, user: toPublicUser(user), gym };
   }
 
   async registerStudent(data: {
     name: string;
     email: string;
-    passwordHash: string;
+    password: string;
     inviteCode?: string;
     gymSlug?: string;
   }) {
@@ -36,106 +41,191 @@ export class AuthService {
       trainer = await this.storage.findUserByInviteCode(data.inviteCode);
     }
 
-    let gymId = 'gym-dutra12';
+    let gymId: string | undefined;
     if (data.gymSlug) {
       const gym = await this.storage.findGymBySlug(data.gymSlug);
       if (gym) gymId = gym.id;
-    } else if (trainer) {
+    } else if (trainer?.gymId) {
       gymId = trainer.gymId;
     }
 
     const newUser = await this.storage.createUser({
       name: data.name,
       email: data.email,
-      passwordHash: data.passwordHash,
+      passwordHash: await this.passwordHasher.hash(data.password),
       role: 'STUDENT',
       gymId,
-      trainerId: trainer ? trainer.id : 'usr-trainer-dutra',
-      tags: ['Novo Aluno']
+      trainerId: trainer?.id,
+      tags: ['Novo Aluno'],
+      status: 'ACTIVE'
     });
 
-    const token = jwt.sign(
-      { userId: newUser.id, role: newUser.role, gymId: newUser.gymId },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-    const gym = await this.storage.findGymById(newUser.gymId);
-    return { token, user: newUser, gym };
-  }
-
-  verifyToken(token: string) {
-    return jwt.verify(token, JWT_SECRET) as { userId: string; role: string; gymId: string };
+    const token = this.tokenService.sign({
+      userId: newUser.id,
+      role: newUser.role,
+      gymId: newUser.gymId
+    });
+    const gym = newUser.gymId ? await this.storage.findGymById(newUser.gymId) : null;
+    return { token, user: toPublicUser(newUser), gym };
   }
 }
 
 export class GymService {
-  constructor(private storage: FileStorageAdapter) {}
+  constructor(private readonly storage: IStorageAdapter) {}
 
-  async getAllGyms(): Promise<Gym[]> {
+  getAllGyms(): Promise<Gym[]> {
     return this.storage.findAllGyms();
   }
 
-  async getGymBySlug(slug: string): Promise<Gym | null> {
+  getGymBySlug(slug: string): Promise<Gym | null> {
     return this.storage.findGymBySlug(slug);
   }
 
-  async createGym(gymData: Omit<Gym, 'id' | 'createdAt'>): Promise<Gym> {
+  createGym(gymData: Omit<Gym, 'id' | 'createdAt'>): Promise<Gym> {
     return this.storage.createGym(gymData);
   }
 
-  async updateGym(id: string, gymData: Partial<Gym>): Promise<Gym | null> {
+  updateGym(id: string, gymData: Partial<Gym>): Promise<Gym | null> {
     return this.storage.updateGym(id, gymData);
   }
 }
 
-export class ScheduleService {
-  constructor(private storage: FileStorageAdapter) {}
+export class UserService {
+  constructor(
+    private readonly storage: IStorageAdapter,
+    private readonly passwordHasher: IPasswordHasher
+  ) {}
 
-  async getActiveScheduleForStudent(studentId: string): Promise<Schedule | null> {
+  async listPublicUsers(): Promise<PublicUser[]> {
+    const users = await this.storage.findAllUsers();
+    return users.map(toPublicUser);
+  }
+
+  async createTrainer(data: {
+    name: string;
+    email: string;
+    password?: string;
+    gymId?: string;
+    inviteCode?: string;
+  }): Promise<{ user: PublicUser; temporaryPassword: string }> {
+    const existing = await this.storage.findUserByEmail(data.email);
+    if (existing) {
+      throw new Error('E-mail de treinador já cadastrado');
+    }
+
+    const temporaryPassword = data.password || `coach${Math.floor(1000 + Math.random() * 9000)}`;
+    const created = await this.storage.createUser({
+      name: data.name,
+      email: data.email,
+      passwordHash: await this.passwordHasher.hash(temporaryPassword),
+      role: 'TRAINER',
+      gymId: data.gymId,
+      inviteCode: data.inviteCode || `TRN-${data.name.toUpperCase().replace(/\s+/g, '')}`,
+      status: 'ACTIVE'
+    });
+    return { user: toPublicUser(created), temporaryPassword };
+  }
+
+  async updateUser(id: string, patch: Partial<User> & { gymId?: string | null }): Promise<PublicUser | null> {
+    const updated = await this.storage.updateUser(id, patch);
+    return updated ? toPublicUser(updated) : null;
+  }
+
+  deleteUser(id: string): Promise<boolean> {
+    return this.storage.deleteUser(id);
+  }
+
+  async listTrainerStudents(trainerId: string): Promise<PublicUser[]> {
+    const students = await this.storage.findStudentsByTrainerId(trainerId);
+    return students.map(toPublicUser);
+  }
+}
+
+export class AccessPolicy {
+  constructor(private readonly storage: IStorageAdapter) {}
+
+  async assertCanAccessStudent(actor: { userId: string; role: string }, studentId: string): Promise<void> {
+    if (actor.role === 'ADMIN') return;
+    if (actor.role === 'STUDENT' && actor.userId === studentId) return;
+    if (actor.role === 'TRAINER') {
+      const student = await this.storage.findUserById(studentId);
+      if (student?.trainerId === actor.userId) return;
+    }
+    throw new ForbiddenError();
+  }
+
+  async assertCanManageTrainerResource(actor: { userId: string; role: string }, trainerId: string): Promise<void> {
+    if (actor.role === 'ADMIN') return;
+    if (actor.role === 'TRAINER' && actor.userId === trainerId) return;
+    throw new ForbiddenError();
+  }
+
+  async assertCanMutateExercise(actor: { userId: string; role: string }, exerciseId: string): Promise<void> {
+    if (actor.role === 'ADMIN') return;
+    const exercise = await this.storage.findExerciseById(exerciseId);
+    if (!exercise) throw new NotFoundError('Exercise not found');
+    if (actor.role === 'TRAINER' && exercise.trainerId === actor.userId) return;
+    throw new ForbiddenError();
+  }
+
+  async assertCanPay(actor: { userId: string; role: string }, paymentId: string): Promise<void> {
+    if (actor.role === 'ADMIN') return;
+    const payment = await this.storage.findPaymentById(paymentId);
+    if (!payment) throw new NotFoundError('Payment not found');
+    if (actor.role === 'TRAINER' && payment.trainerId === actor.userId) return;
+    if (actor.role === 'STUDENT' && payment.studentId === actor.userId) return;
+    throw new ForbiddenError();
+  }
+}
+
+export class ScheduleService {
+  constructor(private readonly storage: IStorageAdapter) {}
+
+  getActiveScheduleForStudent(studentId: string): Promise<Schedule | null> {
     return this.storage.findActiveScheduleByStudentId(studentId);
   }
 
-  async getStudentSchedules(studentId: string): Promise<Schedule[]> {
+  getStudentSchedules(studentId: string): Promise<Schedule[]> {
     return this.storage.findSchedulesByStudentId(studentId);
   }
 
-  async createPrescription(scheduleData: Omit<Schedule, 'id' | 'createdAt'>): Promise<Schedule> {
+  createPrescription(scheduleData: Omit<Schedule, 'id' | 'createdAt'> & { id?: string }): Promise<Schedule> {
     return this.storage.createSchedule(scheduleData);
   }
 
-  async logExecution(logData: Omit<WorkoutExecutionLog, 'id'>): Promise<WorkoutExecutionLog> {
+  logExecution(logData: Omit<WorkoutExecutionLog, 'id'>): Promise<WorkoutExecutionLog> {
     return this.storage.logExecution(logData);
   }
 
-  async getExecutionLogs(studentId: string): Promise<WorkoutExecutionLog[]> {
+  getExecutionLogs(studentId: string): Promise<WorkoutExecutionLog[]> {
     return this.storage.findExecutionLogs(studentId);
   }
 }
 
 export class ExerciseService {
-  constructor(private storage: FileStorageAdapter) {}
+  constructor(private readonly storage: IStorageAdapter) {}
 
-  async getExercisesByTrainer(trainerId: string): Promise<Exercise[]> {
+  getExercisesByTrainer(trainerId: string): Promise<Exercise[]> {
     return this.storage.findExercisesByTrainerId(trainerId);
   }
 
-  async createExercise(exerciseData: Omit<Exercise, 'id' | 'createdAt'>): Promise<Exercise> {
+  createExercise(exerciseData: Omit<Exercise, 'id' | 'createdAt'> & { id?: string }): Promise<Exercise> {
     return this.storage.createExercise(exerciseData);
   }
 
-  async deleteExercise(id: string): Promise<boolean> {
+  deleteExercise(id: string): Promise<boolean> {
     return this.storage.deleteExercise(id);
   }
 }
 
 export class PaymentService {
-  constructor(private storage: FileStorageAdapter) {}
+  constructor(private readonly storage: IStorageAdapter) {}
 
-  async getTrainerConfig(trainerId: string): Promise<PaymentConfig | null> {
+  getTrainerConfig(trainerId: string): Promise<PaymentConfig | null> {
     return this.storage.getTrainerPaymentConfig(trainerId);
   }
 
-  async saveTrainerConfig(config: PaymentConfig): Promise<PaymentConfig> {
+  saveTrainerConfig(config: PaymentConfig): Promise<PaymentConfig> {
     return this.storage.saveTrainerPaymentConfig(config);
   }
 
@@ -143,8 +233,6 @@ export class PaymentService {
     const list = await this.storage.findStudentPayments(studentId);
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // Check overdue and auto-generate next month payment if previous due date passed
-    let needsNewPayment = false;
     let lastPayment: StudentPayment | null = null;
 
     for (const p of list) {
@@ -158,10 +246,6 @@ export class PaymentService {
     }
 
     if (lastPayment && lastPayment.dueDate < todayStr) {
-      needsNewPayment = true;
-    }
-
-    if (needsNewPayment && lastPayment) {
       const lastDueDate = new Date(lastPayment.dueDate);
       const nextDueDate = new Date(lastDueDate);
       nextDueDate.setMonth(nextDueDate.getMonth() + 1);
@@ -181,7 +265,7 @@ export class PaymentService {
     return list;
   }
 
-  async getTrainerStudentPayments(trainerId: string): Promise<StudentPayment[]> {
+  getTrainerStudentPayments(trainerId: string): Promise<StudentPayment[]> {
     return this.storage.findTrainerPayments(trainerId);
   }
 
@@ -194,13 +278,11 @@ export class PaymentService {
       const nextDueDate = new Date(currentDueDate);
       nextDueDate.setMonth(nextDueDate.getMonth() + 1);
 
-      const formattedDueDate = nextDueDate.toISOString().split('T')[0];
-
       nextPayment = await this.storage.createPayment({
         studentId: updated.studentId,
         trainerId: updated.trainerId,
         amount: updated.amount,
-        dueDate: formattedDueDate,
+        dueDate: nextDueDate.toISOString().split('T')[0],
         status: 'PENDING',
         pixKey: updated.pixKey,
         pixKeyType: updated.pixKeyType

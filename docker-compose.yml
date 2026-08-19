@@ -1,6 +1,22 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fitpulse
+      POSTGRES_PASSWORD: fitpulse
+      POSTGRES_DB: fitpulse
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fitpulse -d fitpulse"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   backend:
     build:
       context: ./backend
@@ -8,23 +24,28 @@ services:
     ports:
       - "4000:4000"
     environment:
-      - PORT=4000
-      - NODE_ENV=production
-      - DB_TYPE=sqlite
-      - JWT_SECRET=fitpulse_super_secret_jwt_key_2026
-    restart: always
-    volumes:
-      - backend-data:/app/data
+      PORT: 4000
+      NODE_ENV: production
+      DATABASE_URL: postgresql://fitpulse:fitpulse@postgres:5432/fitpulse
+      JWT_SECRET: dev-only-fitpulse-jwt-secret-change-me!!
+      FRONTEND_ORIGIN: http://localhost:3000
+      SEED_ON_START: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ""
     ports:
       - "3000:80"
     depends_on:
       - backend
-    restart: always
+    restart: unless-stopped
 
 volumes:
-  backend-data:
+  pgdata:

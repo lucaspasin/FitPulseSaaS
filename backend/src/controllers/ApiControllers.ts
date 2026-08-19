@@ -1,251 +1,201 @@
-import { Router, Request, Response } from 'express';
-import { FileStorageAdapter } from '../repositories/StorageAdapter.js';
-import { AuthService, GymService, ScheduleService, ExerciseService, PaymentService } from '../services/Services.js';
+import { Router, Response } from 'express';
+import { IStorageAdapter } from '../repositories/Interfaces.js';
+import {
+  AuthService,
+  GymService,
+  ScheduleService,
+  ExerciseService,
+  PaymentService,
+  UserService,
+  AccessPolicy
+} from '../services/Services.js';
+import { ITokenService } from '../security/ITokenService.js';
+import { asyncHandler } from '../http/asyncHandler.js';
+import { AuthenticatedRequest, createRequireAuth, requireRole } from '../http/authMiddleware.js';
+import { NotFoundError } from '../http/HttpError.js';
 
-export function createApiRouter(): Router {
+export function createApiRouter(deps: {
+  storage: IStorageAdapter;
+  authService: AuthService;
+  gymService: GymService;
+  scheduleService: ScheduleService;
+  exerciseService: ExerciseService;
+  paymentService: PaymentService;
+  userService: UserService;
+  accessPolicy: AccessPolicy;
+  tokenService: ITokenService;
+}): Router {
   const router = Router();
-  const storage = new FileStorageAdapter();
+  const requireAuth = createRequireAuth(deps.tokenService);
+  const {
+    storage,
+    authService,
+    gymService,
+    scheduleService,
+    exerciseService,
+    paymentService,
+    userService,
+    accessPolicy
+  } = deps;
 
-  const authService = new AuthService(storage);
-  const gymService = new GymService(storage);
-  const scheduleService = new ScheduleService(storage);
-  const exerciseService = new ExerciseService(storage);
-  const paymentService = new PaymentService(storage);
+  router.post('/auth/login', asyncHandler(async (req, res) => {
+    const { email, password } = req.body;
+    const result = await authService.login(email, password);
+    res.json(result);
+  }));
 
-  // --- Auth & Gym Public Routes ---
-  router.get('/users', async (req: Request, res: Response) => {
-    try {
-      const users = await storage.findAllUsers();
-      res.json(users);
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
+  router.post('/auth/register', asyncHandler(async (req, res) => {
+    const { name, email, password, inviteCode, gymSlug } = req.body;
+    const result = await authService.registerStudent({ name, email, password, inviteCode, gymSlug });
+    res.json(result);
+  }));
 
-  router.delete('/users/:id', async (req: Request, res: Response) => {
-    try {
-      const success = await storage.deleteUser(req.params.id);
-      res.json({ success });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
+  router.get('/gyms', asyncHandler(async (_req, res) => {
+    res.json(await gymService.getAllGyms());
+  }));
 
-  router.post('/auth/login', async (req: Request, res: Response) => {
-    try {
-      const { email, password } = req.body;
-      const result = await authService.login(email, password);
-      res.json(result);
-    } catch (err: any) {
-      res.status(400).json({ error: err.message });
-    }
-  });
+  router.get('/gyms/slug/:slug', asyncHandler(async (req, res) => {
+    const gym = await gymService.getGymBySlug(req.params.slug);
+    if (!gym) throw new NotFoundError('Gym not found');
+    res.json(gym);
+  }));
 
-  router.post('/auth/register', async (req: Request, res: Response) => {
-    try {
-      const { name, email, password, inviteCode, gymSlug } = req.body;
-      const result = await authService.registerStudent({ name, email, passwordHash: password, inviteCode, gymSlug });
-      res.json(result);
-    } catch (err: any) {
-      res.status(400).json({ error: err.message });
-    }
-  });
+  router.use(requireAuth);
 
-  // --- Trainer Creation API (Dev Admin Role) ---
-  router.post('/trainers', async (req: Request, res: Response) => {
-    try {
-      const { name, email, password, gymId, inviteCode } = req.body;
-      const existing = await storage.findUserByEmail(email);
-      if (existing) {
-        return res.status(400).json({ error: 'E-mail de treinador já cadastrado' });
+  router.get('/users', requireRole('ADMIN'), asyncHandler(async (_req, res) => {
+    res.json(await userService.listPublicUsers());
+  }));
+
+  router.delete('/users/:id', requireRole('ADMIN', 'TRAINER'), asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const target = await storage.findUserById(req.params.id);
+    if (!target) throw new NotFoundError('User not found');
+    if (req.auth!.role === 'TRAINER') {
+      if (target.role !== 'STUDENT' || target.trainerId !== req.auth!.userId) {
+        res.status(403).json({ error: 'Forbidden' });
+        return;
       }
-
-      const newTrainer = await storage.createUser({
-        name,
-        email,
-        passwordHash: password || 'trainer123',
-        role: 'TRAINER',
-        gymId: gymId || 'gym-dutra12',
-        inviteCode: inviteCode || `TRN-${name.toUpperCase().replace(/\s+/g, '')}`
-      });
-
-      res.status(201).json(newTrainer);
-    } catch (err: any) {
-      res.status(400).json({ error: err.message });
     }
-  });
+    res.json({ success: await userService.deleteUser(req.params.id) });
+  }));
 
-  router.get('/gyms', async (req: Request, res: Response) => {
-    try {
-      const gyms = await gymService.getAllGyms();
-      res.json(gyms);
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
+  router.put('/users/:userId', requireRole('ADMIN', 'TRAINER'), asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    if (req.auth!.role === 'TRAINER' && req.auth!.userId !== req.params.userId) {
+      await accessPolicy.assertCanAccessStudent(req.auth!, req.params.userId);
     }
-  });
+    const { gymId, tags, status, name } = req.body;
+    const updated = await userService.updateUser(req.params.userId, {
+      gymId: gymId === undefined ? undefined : gymId || null,
+      tags,
+      status,
+      name
+    });
+    res.json(updated);
+  }));
 
-  router.get('/gyms/slug/:slug', async (req: Request, res: Response) => {
-    try {
-      const gym = await gymService.getGymBySlug(req.params.slug);
-      if (!gym) return res.status(404).json({ error: 'Gym not found' });
-      res.json(gym);
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
+  router.post('/trainers', requireRole('ADMIN'), asyncHandler(async (req, res) => {
+    const { name, email, password, gymId, inviteCode } = req.body;
+    const result = await userService.createTrainer({ name, email, password, gymId, inviteCode });
+    res.status(201).json({ ...result.user, temporaryPassword: result.temporaryPassword });
+  }));
 
-  router.post('/gyms', async (req: Request, res: Response) => {
-    try {
-      const gym = await gymService.createGym(req.body);
-      res.status(201).json(gym);
-    } catch (err: any) {
-      res.status(400).json({ error: err.message });
-    }
-  });
+  router.post('/gyms', requireRole('ADMIN'), asyncHandler(async (req, res) => {
+    const { name, slug, logoUrl, bannerUrl, primaryColor, secondaryColor } = req.body;
+    const gym = await gymService.createGym({ name, slug, logoUrl, bannerUrl, primaryColor, secondaryColor });
+    res.status(201).json(gym);
+  }));
 
-  router.put('/gyms/:id', async (req: Request, res: Response) => {
-    try {
-      const gym = await gymService.updateGym(req.params.id, req.body);
-      res.json(gym);
-    } catch (err: any) {
-      res.status(400).json({ error: err.message });
-    }
-  });
+  router.put('/gyms/:id', requireRole('ADMIN'), asyncHandler(async (req, res) => {
+    const gym = await gymService.updateGym(req.params.id, req.body);
+    res.json(gym);
+  }));
 
-  // --- Student Management & Custom Tags (Trainer Role) ---
-  router.get('/trainers/:trainerId/students', async (req: Request, res: Response) => {
-    try {
-      const students = await storage.findStudentsByTrainerId(req.params.trainerId);
-      res.json(students);
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
+  router.get('/trainers/:trainerId/students', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    await accessPolicy.assertCanManageTrainerResource(req.auth!, req.params.trainerId);
+    res.json(await userService.listTrainerStudents(req.params.trainerId));
+  }));
 
-  router.put('/users/:userId/tags', async (req: Request, res: Response) => {
-    try {
-      const { tags, status } = req.body;
-      const updateData: any = {};
-      if (tags !== undefined) updateData.tags = tags;
-      if (status !== undefined) updateData.status = status;
-      const updated = await storage.updateUser(req.params.userId, updateData);
-      res.json(updated);
-    } catch (err: any) {
-      res.status(400).json({ error: err.message });
+  router.put('/users/:userId/tags', requireRole('ADMIN', 'TRAINER'), asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    if (req.auth!.role === 'TRAINER') {
+      await accessPolicy.assertCanAccessStudent(req.auth!, req.params.userId);
     }
-  });
+    const { tags, status } = req.body;
+    const updated = await userService.updateUser(req.params.userId, { tags, status });
+    res.json(updated);
+  }));
 
-  // --- Exercise Bank Routes ---
-  router.get('/trainers/:trainerId/exercises', async (req: Request, res: Response) => {
-    try {
-      const exercises = await exerciseService.getExercisesByTrainer(req.params.trainerId);
-      res.json(exercises);
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
+  router.get('/trainers/:trainerId/exercises', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    await accessPolicy.assertCanManageTrainerResource(req.auth!, req.params.trainerId);
+    res.json(await exerciseService.getExercisesByTrainer(req.params.trainerId));
+  }));
 
-  router.post('/exercises', async (req: Request, res: Response) => {
-    try {
-      const exercise = await exerciseService.createExercise(req.body);
-      res.status(201).json(exercise);
-    } catch (err: any) {
-      res.status(400).json({ error: err.message });
-    }
-  });
+  router.post('/exercises', requireRole('ADMIN', 'TRAINER'), asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const trainerId = req.auth!.role === 'TRAINER' ? req.auth!.userId : req.body.trainerId;
+    const exercise = await exerciseService.createExercise({ ...req.body, trainerId });
+    res.status(201).json(exercise);
+  }));
 
-  router.delete('/exercises/:id', async (req: Request, res: Response) => {
-    try {
-      const success = await exerciseService.deleteExercise(req.params.id);
-      res.json({ success });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
+  router.delete('/exercises/:id', requireRole('ADMIN', 'TRAINER'), asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    await accessPolicy.assertCanMutateExercise(req.auth!, req.params.id);
+    res.json({ success: await exerciseService.deleteExercise(req.params.id) });
+  }));
 
-  // --- Schedule Prescriptions ---
-  router.get('/students/:studentId/schedules/active', async (req: Request, res: Response) => {
-    try {
-      const schedule = await scheduleService.getActiveScheduleForStudent(req.params.studentId);
-      if (!schedule) return res.status(404).json({ error: 'No active schedule found' });
-      res.json(schedule);
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
+  router.get('/students/:studentId/schedules/active', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    await accessPolicy.assertCanAccessStudent(req.auth!, req.params.studentId);
+    const schedule = await scheduleService.getActiveScheduleForStudent(req.params.studentId);
+    if (!schedule) throw new NotFoundError('No active schedule found');
+    res.json(schedule);
+  }));
 
-  router.get('/students/:studentId/schedules', async (req: Request, res: Response) => {
-    try {
-      const schedules = await storage.findSchedulesByStudentId(req.params.studentId);
-      res.json(schedules);
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
+  router.get('/students/:studentId/schedules', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    await accessPolicy.assertCanAccessStudent(req.auth!, req.params.studentId);
+    res.json(await storage.findSchedulesByStudentId(req.params.studentId));
+  }));
 
-  router.post('/schedules', async (req: Request, res: Response) => {
-    try {
-      const schedule = await scheduleService.createPrescription(req.body);
-      res.status(201).json(schedule);
-    } catch (err: any) {
-      res.status(400).json({ error: err.message });
-    }
-  });
+  router.post('/schedules', requireRole('ADMIN', 'TRAINER'), asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    await accessPolicy.assertCanAccessStudent(req.auth!, req.body.studentId);
+    const schedule = await scheduleService.createPrescription({
+      ...req.body,
+      trainerId: req.auth!.role === 'TRAINER' ? req.auth!.userId : req.body.trainerId
+    });
+    res.status(201).json(schedule);
+  }));
 
-  router.post('/executions', async (req: Request, res: Response) => {
-    try {
-      const log = await scheduleService.logExecution(req.body);
-      res.status(201).json(log);
-    } catch (err: any) {
-      res.status(400).json({ error: err.message });
-    }
+  const createExecution = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    await accessPolicy.assertCanAccessStudent(req.auth!, req.body.studentId);
+    const log = await scheduleService.logExecution(req.body);
+    res.status(201).json(log);
   });
+  router.post('/executions', createExecution);
+  router.post('/schedules/execution-logs', createExecution);
 
-  router.get('/students/:studentId/executions', async (req: Request, res: Response) => {
-    try {
-      const logs = await scheduleService.getExecutionLogs(req.params.studentId);
-      res.json(logs);
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
+  const listExecutions = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    await accessPolicy.assertCanAccessStudent(req.auth!, req.params.studentId);
+    res.json(await scheduleService.getExecutionLogs(req.params.studentId));
   });
+  router.get('/students/:studentId/executions', listExecutions);
+  router.get('/students/:studentId/execution-logs', listExecutions);
 
-  // --- Billing & PIX Payments ---
-  router.get('/trainers/:trainerId/payment-config', async (req: Request, res: Response) => {
-    try {
-      const config = await paymentService.getTrainerConfig(req.params.trainerId);
-      res.json(config);
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
+  router.get('/trainers/:trainerId/payment-config', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    await accessPolicy.assertCanManageTrainerResource(req.auth!, req.params.trainerId);
+    res.json(await paymentService.getTrainerConfig(req.params.trainerId));
+  }));
 
-  router.post('/trainers/payment-config', async (req: Request, res: Response) => {
-    try {
-      const config = await paymentService.saveTrainerConfig(req.body);
-      res.json(config);
-    } catch (err: any) {
-      res.status(400).json({ error: err.message });
-    }
-  });
+  router.post('/trainers/payment-config', requireRole('ADMIN', 'TRAINER'), asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const trainerId = req.auth!.role === 'TRAINER' ? req.auth!.userId : req.body.trainerId;
+    const config = await paymentService.saveTrainerConfig({ ...req.body, trainerId });
+    res.json(config);
+  }));
 
-  router.get('/students/:studentId/payments', async (req: Request, res: Response) => {
-    try {
-      const payments = await paymentService.getStudentPayments(req.params.studentId);
-      res.json(payments);
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
+  router.get('/students/:studentId/payments', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    await accessPolicy.assertCanAccessStudent(req.auth!, req.params.studentId);
+    res.json(await paymentService.getStudentPayments(req.params.studentId));
+  }));
 
-  router.post('/payments/:paymentId/pay', async (req: Request, res: Response) => {
-    try {
-      const payment = await paymentService.updatePaymentStatus(req.params.paymentId, 'PAID');
-      res.json(payment);
-    } catch (err: any) {
-      res.status(400).json({ error: err.message });
-    }
-  });
+  router.post('/payments/:paymentId/pay', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    await accessPolicy.assertCanPay(req.auth!, req.params.paymentId);
+    const payment = await paymentService.updatePaymentStatus(req.params.paymentId, 'PAID');
+    res.json(payment);
+  }));
 
   return router;
 }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth, Gym, User } from '../context/AuthContext.js';
+import { apiFetch } from '../api/client.js';
 import { useLanguage } from '../context/LanguageContext.js';
 import {
   Building2,
@@ -56,71 +57,13 @@ export const AdminDashboard: React.FC = () => {
   const [inspectorSearchTerm, setInspectorSearchTerm] = useState('');
 
   const fetchGyms = async () => {
-    try {
-      const res = await fetch('/api/gyms');
-      const contentType = res.headers.get('content-type');
-      if (res.ok && contentType && contentType.includes('application/json')) {
-        setGyms(await res.json());
-        return;
-      }
-    } catch (err) {
-      console.warn('Using client-side gyms fallback:', err);
-    }
-
-    const localGyms = JSON.parse(localStorage.getItem('fitpulse_gyms') || '[]');
-    setGyms(localGyms);
+    setGyms(await apiFetch<Gym[]>('/api/gyms'));
   };
 
   const fetchTrainersAndStudents = async () => {
-    let combined: User[] = [];
-    try {
-      const res = await fetch('/api/users');
-      const contentType = res.headers.get('content-type');
-      if (res.ok && contentType && contentType.includes('application/json')) {
-        combined = await res.json();
-      }
-    } catch (err) {
-      console.warn('Using client-side users fallback:', err);
-    }
-
-    const localUsers: User[] = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
-    
-    // Default mocks if not in local
-    const mockTrainers: User[] = [
-      {
-        id: 'usr-trainer-dutra',
-        email: 'treinador@dutra12.com',
-        name: 'Coach Dutra',
-        role: 'TRAINER',
-        gymId: 'gym-dutra12',
-        inviteCode: 'TRN-DUTRA12'
-      }
-    ];
-
-    const mockStudents: User[] = [
-      {
-        id: 'usr-student-lucas',
-        email: 'lucas@pasin.com',
-        name: 'Lucas Pasin',
-        role: 'STUDENT',
-        gymId: 'gym-dutra12',
-        trainerId: 'usr-trainer-dutra',
-        tags: ['Meia Maratona', 'Foco Bíceps', 'Avançado']
-      }
-    ];
-
-    mockTrainers.forEach(mt => {
-      if (!combined.some(u => u.id === mt.id || u.email === mt.email)) combined.push(mt);
-    });
-    mockStudents.forEach(ms => {
-      if (!combined.some(u => u.id === ms.id || u.email === ms.email)) combined.push(ms);
-    });
-    localUsers.forEach(lu => {
-      if (!combined.some(u => u.id === lu.id || u.email === lu.email)) combined.push(lu);
-    });
-
-    setTrainers(combined.filter(u => u.role === 'TRAINER'));
-    setStudents(combined.filter(u => u.role === 'STUDENT'));
+    const combined = await apiFetch<User[]>('/api/users');
+    setTrainers(combined.filter((u) => u.role === 'TRAINER'));
+    setStudents(combined.filter((u) => u.role === 'STUDENT'));
   };
 
   useEffect(() => {
@@ -152,47 +95,26 @@ export const AdminDashboard: React.FC = () => {
       secondaryColor
     };
 
-    try {
-      const url = editingGym ? `/api/gyms/${editingGym.id}` : '/api/gyms';
-      const method = editingGym ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newGym)
-      });
-      const contentType = res.headers.get('content-type');
-      if (res.ok && contentType && contentType.includes('application/json')) {
-        setShowModal(false);
-        setEditingGym(null);
-        setName('');
-        setSlug('');
-        setLogoUrl('');
-        setBannerUrl('');
-        fetchGyms();
-        return;
-      }
-    } catch (err) {
-      console.warn('Saving gym to client storage:', err);
-    }
-
-    const localGyms = JSON.parse(localStorage.getItem('fitpulse_gyms') || '[]');
-    const existingIdx = localGyms.findIndex((g: any) => g.id === newGym.id);
-    let updatedGyms;
-    if (existingIdx !== -1) {
-      localGyms[existingIdx] = newGym;
-      updatedGyms = localGyms;
-    } else {
-      updatedGyms = [...localGyms, newGym];
-    }
-    localStorage.setItem('fitpulse_gyms', JSON.stringify(updatedGyms));
+    const url = editingGym ? `/api/gyms/${editingGym.id}` : '/api/gyms';
+    const method = editingGym ? 'PUT' : 'POST';
+    await apiFetch(url, {
+      method,
+      body: JSON.stringify({
+        name: newGym.name,
+        slug: newGym.slug,
+        logoUrl: newGym.logoUrl,
+        bannerUrl: newGym.bannerUrl,
+        primaryColor: newGym.primaryColor,
+        secondaryColor: newGym.secondaryColor
+      })
+    });
     setShowModal(false);
     setEditingGym(null);
     setName('');
     setSlug('');
     setLogoUrl('');
     setBannerUrl('');
-    setGyms(updatedGyms);
+    fetchGyms();
   };
 
   const handleCreateTrainer = async (e: React.FormEvent) => {
@@ -200,47 +122,16 @@ export const AdminDashboard: React.FC = () => {
     const tempPassword = 'coach' + Math.floor(1000 + Math.random() * 9000);
     const assignedGymId = newTrainerGymId || undefined;
 
-    const newTrainer: User = {
-      id: `usr-${Date.now()}`,
-      name: trainerName,
-      email: trainerEmail,
-      role: 'TRAINER',
-      gymId: assignedGymId,
-      inviteCode: `TRN-${trainerName.toUpperCase().replace(/\s+/g, '')}`
-    };
-
-    try {
-      const res = await fetch('/api/trainers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: trainerName,
-          email: trainerEmail,
-          password: tempPassword,
-          gymId: assignedGymId,
-          inviteCode: `TRN-${trainerName.toUpperCase().replace(/\s+/g, '')}`
-        })
-      });
-
-      const contentType = res.headers.get('content-type');
-      if (res.ok && contentType && contentType.includes('application/json')) {
-        setSentEmailModal({
-          to: trainerEmail,
-          pass: tempPassword
-        });
-        setShowTrainerModal(false);
-        setTrainerName('');
-        setTrainerEmail('');
-        setNewTrainerGymId('');
-        fetchTrainersAndStudents();
-        return;
-      }
-    } catch (err) {
-      console.warn('Saving trainer to client storage:', err);
-    }
-
-    const localUsers = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
-    localStorage.setItem('fitpulse_users', JSON.stringify([...localUsers, newTrainer]));
+    await apiFetch('/api/trainers', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: trainerName,
+        email: trainerEmail,
+        password: tempPassword,
+        gymId: assignedGymId,
+        inviteCode: `TRN-${trainerName.toUpperCase().replace(/\s+/g, '')}`
+      })
+    });
     setSentEmailModal({
       to: trainerEmail,
       pass: tempPassword

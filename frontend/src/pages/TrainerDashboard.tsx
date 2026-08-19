@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth, Gym } from '../context/AuthContext.js';
+import { apiFetch } from '../api/client.js';
 import { useLanguage } from '../context/LanguageContext.js';
 import {
   UserCheck,
@@ -101,54 +102,16 @@ export const TrainerDashboard: React.FC = () => {
 
   const fetchStudents = async () => {
     if (!user) return;
-
-    let serverStudents: any[] = [];
-    try {
-      const res = await fetch(`/api/trainers/${user.id}/students`);
-      const contentType = res.headers.get('content-type');
-      if (res.ok && contentType && contentType.includes('application/json')) {
-        serverStudents = await res.json();
-      }
-    } catch (err) {
-      console.warn('Using client-side students fallback:', err);
-    }
-
-    const localUsers = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
-    const localStudents = localUsers.filter((u: any) => 
-      u.role === 'STUDENT' && (u.trainerId === user.id || (!u.trainerId && user.id === 'usr-trainer-dutra'))
-    );
-
-    const merged = [...serverStudents];
-    localStudents.forEach((ls: any) => {
-      if (!merged.some((m: any) => m.id === ls.id || m.email === ls.email)) {
-        merged.push(ls);
-      }
-    });
-
-    setStudents(merged);
+    setStudents(await apiFetch<any[]>(`/api/trainers/${user.id}/students`));
   };
 
   const fetchExercises = async () => {
     if (!user) return;
-    try {
-      const res = await fetch(`/api/trainers/${user.id}/exercises`);
-      const contentType = res.headers.get('content-type');
-      if (res.ok && contentType && contentType.includes('application/json')) {
-        setExercises(await res.json());
-        return;
-      }
-    } catch (err) {
-      console.warn('Using client-side exercises fallback:', err);
-    }
-
-    const localEx = JSON.parse(localStorage.getItem('fitpulse_exercises') || '[]');
-    const exList = localEx.filter((e: any) => !e.trainerId || e.trainerId === user.id || user.id === 'usr-trainer-dutra');
-    setExercises(exList);
+    setExercises(await apiFetch<any[]>(`/api/trainers/${user.id}/exercises`));
   };
 
   const fetchGyms = async () => {
-    const localGyms = JSON.parse(localStorage.getItem('fitpulse_gyms') || '[]');
-    setGymsList(localGyms);
+    setGymsList(await apiFetch<Gym[]>('/api/gyms'));
   };
 
   useEffect(() => {
@@ -176,9 +139,9 @@ export const TrainerDashboard: React.FC = () => {
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
-  const handleSaveProfileSettings = () => {
+  const handleSaveProfileSettings = async () => {
     if (user) {
-      updateUserGymAffiliation(user.id, selectedGymAffiliation || undefined);
+      await updateUserGymAffiliation(user.id, selectedGymAffiliation || undefined);
     }
     alert(t('save'));
   };
@@ -197,59 +160,19 @@ export const TrainerDashboard: React.FC = () => {
     setStudentDetailTab('info');
 
     // Fetch payments
-    try {
-      const resP = await fetch(`/api/students/${st.id}/payments`);
-      const contentType = resP.headers.get('content-type');
-      if (resP.ok && contentType && contentType.includes('application/json')) {
-        setStudentPaymentHistory(await resP.json());
-      } else {
-        const localPay = JSON.parse(localStorage.getItem('fitpulse_payments') || '[]');
-        setStudentPaymentHistory(localPay.filter((p: any) => p.studentId === st.id));
-      }
-    } catch (err) {
-      const localPay = JSON.parse(localStorage.getItem('fitpulse_payments') || '[]');
-      setStudentPaymentHistory(localPay.filter((p: any) => p.studentId === st.id));
-    }
-
-    // Fetch schedules
-    try {
-      const resS = await fetch(`/api/students/${st.id}/schedules`);
-      const contentType = resS.headers.get('content-type');
-      if (resS.ok && contentType && contentType.includes('application/json')) {
-        setStudentSchedulesList(await resS.json());
-      } else {
-        const localSched = JSON.parse(localStorage.getItem('fitpulse_schedules') || '[]');
-        setStudentSchedulesList(localSched.filter((s: any) => s.studentId === st.id));
-      }
-    } catch (err) {
-      const localSched = JSON.parse(localStorage.getItem('fitpulse_schedules') || '[]');
-      setStudentSchedulesList(localSched.filter((s: any) => s.studentId === st.id));
-    }
+    setStudentPaymentHistory(await apiFetch<any[]>(`/api/students/${st.id}/payments`));
+    setStudentSchedulesList(await apiFetch<any[]>(`/api/students/${st.id}/schedules`));
   };
 
   const handleToggleStudentStatus = async () => {
     if (!selectedStudentDetail) return;
     const newStatus = selectedStudentDetail.status === 'INACTIVE' ? 'ACTIVE' : 'INACTIVE';
-    try {
-      const res = await fetch(`/api/users/${selectedStudentDetail.id}/tags`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-      });
-      if (res.ok) {
-        setSelectedStudentDetail({ ...selectedStudentDetail, status: newStatus });
-        fetchStudents();
-        return;
-      }
-    } catch (err) {
-      console.warn('Updating student status in client storage:', err);
-    }
-
-    const localUsers = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
-    const updatedUsers = localUsers.map((u: any) => u.id === selectedStudentDetail.id ? { ...u, status: newStatus } : u);
-    localStorage.setItem('fitpulse_users', JSON.stringify(updatedUsers));
-    setSelectedStudentDetail({ ...selectedStudentDetail, status: newStatus });
-    setStudents(updatedUsers.filter((u: any) => u.role === 'STUDENT' && (u.trainerId === user?.id || (!u.trainerId && user?.id === 'usr-trainer-dutra'))));
+    const updated = await apiFetch<any>(`/api/users/${selectedStudentDetail.id}/tags`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: newStatus })
+    });
+    setSelectedStudentDetail({ ...selectedStudentDetail, ...updated, status: newStatus });
+    fetchStudents();
   };
 
   const handleAddTag = async () => {
@@ -257,80 +180,32 @@ export const TrainerDashboard: React.FC = () => {
     const currentTags = selectedStudentDetail.tags || [];
     const updatedTags = [...currentTags, newTagInput.trim()];
 
-    try {
-      const res = await fetch(`/api/users/${selectedStudentDetail.id}/tags`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tags: updatedTags })
-      });
-      if (res.ok) {
-        setSelectedStudentDetail({ ...selectedStudentDetail, tags: updatedTags });
-        setNewTagInput('');
-        fetchStudents();
-        return;
-      }
-    } catch (err) {
-      console.warn('Updating tags in client storage:', err);
-    }
-
-    const localUsers = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
-    const updatedUsers = localUsers.map((u: any) => u.id === selectedStudentDetail.id ? { ...u, tags: updatedTags } : u);
-    localStorage.setItem('fitpulse_users', JSON.stringify(updatedUsers));
-    setSelectedStudentDetail({ ...selectedStudentDetail, tags: updatedTags });
+    const updated = await apiFetch<any>(`/api/users/${selectedStudentDetail.id}/tags`, {
+      method: 'PUT',
+      body: JSON.stringify({ tags: updatedTags })
+    });
+    setSelectedStudentDetail({ ...selectedStudentDetail, ...updated, tags: updatedTags });
     setNewTagInput('');
-    setStudents(updatedUsers.filter((u: any) => u.role === 'STUDENT' && (u.trainerId === user?.id || (!u.trainerId && user?.id === 'usr-trainer-dutra'))));
+    fetchStudents();
   };
 
   const handleRemoveTag = async (tagToRemove: string) => {
     if (!selectedStudentDetail) return;
     const updatedTags = (selectedStudentDetail.tags || []).filter((t: string) => t !== tagToRemove);
 
-    try {
-      const res = await fetch(`/api/users/${selectedStudentDetail.id}/tags`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tags: updatedTags })
-      });
-      if (res.ok) {
-        setSelectedStudentDetail({ ...selectedStudentDetail, tags: updatedTags });
-        fetchStudents();
-        return;
-      }
-    } catch (err) {
-      console.warn('Removing tag in client storage:', err);
-    }
-
-    const localUsers = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
-    const updatedUsers = localUsers.map((u: any) => u.id === selectedStudentDetail.id ? { ...u, tags: updatedTags } : u);
-    localStorage.setItem('fitpulse_users', JSON.stringify(updatedUsers));
-    setSelectedStudentDetail({ ...selectedStudentDetail, tags: updatedTags });
-    setStudents(updatedUsers.filter((u: any) => u.role === 'STUDENT' && (u.trainerId === user?.id || (!u.trainerId && user?.id === 'usr-trainer-dutra'))));
+    const updated = await apiFetch<any>(`/api/users/${selectedStudentDetail.id}/tags`, {
+      method: 'PUT',
+      body: JSON.stringify({ tags: updatedTags })
+    });
+    setSelectedStudentDetail({ ...selectedStudentDetail, ...updated, tags: updatedTags });
+    fetchStudents();
   };
 
   const handleMarkPaymentAsPaid = async (paymentId: string) => {
-    try {
-      const res = await fetch(`/api/payments/${paymentId}/pay`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      if (res.ok) {
-        alert(t('paid'));
-        if (selectedStudentDetail) {
-          const resP = await fetch(`/api/students/${selectedStudentDetail.id}/payments`);
-          if (resP.ok) setStudentPaymentHistory(await resP.json());
-        }
-        return;
-      }
-    } catch (err) {
-      console.warn('Marking payment as paid in client storage:', err);
-    }
-
-    const localPay = JSON.parse(localStorage.getItem('fitpulse_payments') || '[]');
-    const updatedPay = localPay.map((p: any) => p.id === paymentId ? { ...p, status: 'PAID', paidAt: new Date().toISOString() } : p);
-    localStorage.setItem('fitpulse_payments', JSON.stringify(updatedPay));
+    await apiFetch(`/api/payments/${paymentId}/pay`, { method: 'POST' });
     alert(t('paid'));
     if (selectedStudentDetail) {
-      setStudentPaymentHistory(updatedPay.filter((p: any) => p.studentId === selectedStudentDetail.id));
+      setStudentPaymentHistory(await apiFetch<any[]>(`/api/students/${selectedStudentDetail.id}/payments`));
     }
   };
 
@@ -387,40 +262,14 @@ export const TrainerDashboard: React.FC = () => {
 
   const handleSaveScheduleChanges = async () => {
     if (!editingScheduleData || !user) return;
-    try {
-      const res = await fetch('/api/schedules', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingScheduleData)
-      });
-      const contentType = res.headers.get('content-type');
-      if (res.ok && contentType && contentType.includes('application/json')) {
-        alert(t('save'));
-        setEditingScheduleData(null);
-        if (selectedStudentDetail) {
-          const resS = await fetch(`/api/students/${selectedStudentDetail.id}/schedules`);
-          if (resS.ok) setStudentSchedulesList(await resS.json());
-        }
-        return;
-      }
-    } catch (err) {
-      console.warn('Saving schedule to client storage:', err);
-    }
-
-    const localSched = JSON.parse(localStorage.getItem('fitpulse_schedules') || '[]');
-    const existingIdx = localSched.findIndex((s: any) => s.id === editingScheduleData.id);
-    let updated;
-    if (existingIdx !== -1) {
-      localSched[existingIdx] = { ...localSched[existingIdx], ...editingScheduleData };
-      updated = localSched;
-    } else {
-      updated = [editingScheduleData, ...localSched];
-    }
-    localStorage.setItem('fitpulse_schedules', JSON.stringify(updated));
+    await apiFetch('/api/schedules', {
+      method: 'POST',
+      body: JSON.stringify(editingScheduleData)
+    });
     alert(t('save'));
     setEditingScheduleData(null);
     if (selectedStudentDetail) {
-      setStudentSchedulesList(updated.filter((s: any) => s.studentId === selectedStudentDetail.id));
+      setStudentSchedulesList(await apiFetch<any[]>(`/api/students/${selectedStudentDetail.id}/schedules`));
     }
   };
 
@@ -467,59 +316,22 @@ export const TrainerDashboard: React.FC = () => {
       createdAt: new Date().toISOString()
     };
 
-    try {
-      const res = await fetch('/api/exercises', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newEx)
-      });
-      if (res.ok) {
-        setShowExModal(false);
-        setEditingExId(null);
-        setExName('');
-        setExInstructions('');
-        setExGifUrl('');
-        fetchExercises();
-        return;
-      }
-    } catch (err) {
-      console.warn('Saving exercise to client storage:', err);
-    }
-
-    const localEx = JSON.parse(localStorage.getItem('fitpulse_exercises') || '[]');
-    const existingIdx = localEx.findIndex((ex: any) => ex.id === newEx.id);
-    let updatedEx;
-    if (existingIdx !== -1) {
-      localEx[existingIdx] = newEx;
-      updatedEx = localEx;
-    } else {
-      updatedEx = [...localEx, newEx];
-    }
-    localStorage.setItem('fitpulse_exercises', JSON.stringify(updatedEx));
+    await apiFetch('/api/exercises', {
+      method: 'POST',
+      body: JSON.stringify(newEx)
+    });
     setShowExModal(false);
     setEditingExId(null);
     setExName('');
     setExInstructions('');
     setExGifUrl('');
-    setExercises(updatedEx);
+    fetchExercises();
   };
 
   const handleDeleteExerciseBankItem = async (id: string) => {
     if (!confirm(t('deleteExercise') + '?')) return;
-    try {
-      const res = await fetch(`/api/exercises/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        fetchExercises();
-        return;
-      }
-    } catch (err) {
-      console.warn('Deleting exercise in client storage:', err);
-    }
-
-    const localEx = JSON.parse(localStorage.getItem('fitpulse_exercises') || '[]');
-    const updatedEx = localEx.filter((ex: any) => ex.id !== id);
-    localStorage.setItem('fitpulse_exercises', JSON.stringify(updatedEx));
-    setExercises(updatedEx);
+    await apiFetch(`/api/exercises/${id}`, { method: 'DELETE' });
+    fetchExercises();
   };
 
   return (

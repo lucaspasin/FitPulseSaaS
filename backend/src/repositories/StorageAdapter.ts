@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { User, Gym, Exercise, Schedule, PaymentConfig, StudentPayment, WorkoutExecutionLog } from '../domain/types.js';
+import { IStorageAdapter } from './Interfaces.js';
+import bcrypt from 'bcryptjs';
 import {
   SEED_USERS,
   SEED_GYMS,
@@ -20,7 +22,7 @@ interface DatabaseSchema {
   executionLogs: WorkoutExecutionLog[];
 }
 
-export class FileStorageAdapter {
+export class FileStorageAdapter implements IStorageAdapter {
   private filePath: string;
   private data: DatabaseSchema;
 
@@ -58,6 +60,12 @@ export class FileStorageAdapter {
         }
       });
     }
+
+    parsed.users = parsed.users.map((user) =>
+      user.passwordHash.startsWith('$2')
+        ? user
+        : { ...user, passwordHash: bcrypt.hashSync(user.passwordHash, 10) }
+    );
 
     try {
       const dir = path.dirname(this.filePath);
@@ -126,7 +134,7 @@ export class FileStorageAdapter {
     return newUser;
   }
 
-  async updateUser(id: string, userData: Partial<User>): Promise<User | null> {
+  async updateUser(id: string, userData: Partial<User> & { gymId?: string | null }): Promise<User | null> {
     const idx = this.data.users.findIndex(u => u.id === id);
     if (idx === -1) return null;
     this.data.users[idx] = { ...this.data.users[idx], ...userData };
@@ -183,10 +191,22 @@ export class FileStorageAdapter {
     return this.data.exercises.filter(e => e.trainerId === trainerId);
   }
 
-  async createExercise(exerciseData: Omit<Exercise, 'id' | 'createdAt'>): Promise<Exercise> {
+  async findExerciseById(id: string): Promise<Exercise | null> {
+    return this.data.exercises.find(e => e.id === id) || null;
+  }
+
+  async createExercise(exerciseData: Omit<Exercise, 'id' | 'createdAt'> & { id?: string }): Promise<Exercise> {
+    if (exerciseData.id) {
+      const idx = this.data.exercises.findIndex(e => e.id === exerciseData.id);
+      if (idx !== -1) {
+        this.data.exercises[idx] = { ...this.data.exercises[idx], ...exerciseData };
+        this.save();
+        return this.data.exercises[idx];
+      }
+    }
     const newEx: Exercise = {
       ...exerciseData,
-      id: `ex-${Date.now()}`,
+      id: exerciseData.id || `ex-${Date.now()}`,
       createdAt: new Date().toISOString()
     };
     this.data.exercises.push(newEx);
@@ -211,6 +231,17 @@ export class FileStorageAdapter {
 
   async findSchedulesByStudentId(studentId: string): Promise<Schedule[]> {
     return this.data.schedules.filter(s => s.studentId === studentId);
+  }
+
+  async findScheduleById(id: string): Promise<Schedule | null> {
+    return this.data.schedules.find(s => s.id === id) || null;
+  }
+
+  async deactivateAllSchedulesForStudent(studentId: string): Promise<void> {
+    this.data.schedules.forEach((s) => {
+      if (s.studentId === studentId) s.active = false;
+    });
+    this.save();
   }
 
   async createSchedule(scheduleData: any): Promise<Schedule> {
@@ -279,6 +310,10 @@ export class FileStorageAdapter {
 
   async findTrainerPayments(trainerId: string): Promise<StudentPayment[]> {
     return this.data.studentPayments.filter(p => p.trainerId === trainerId);
+  }
+
+  async findPaymentById(paymentId: string): Promise<StudentPayment | null> {
+    return this.data.studentPayments.find(p => p.id === paymentId) || null;
   }
 
   async createPayment(paymentData: Omit<StudentPayment, 'id'>): Promise<StudentPayment> {

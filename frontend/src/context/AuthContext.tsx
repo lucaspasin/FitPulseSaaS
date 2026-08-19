@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { apiFetch } from '../api/client.js';
 
 export interface User {
   id: string;
@@ -36,46 +37,11 @@ interface AuthContextType {
   switchDemoRole: (role: 'ADMIN' | 'TRAINER' | 'STUDENT') => void;
   selectTrainerUser: (trainer: User) => void;
   selectStudentUser: (student: User) => void;
-  updateUserGymAffiliation: (userId: string, gymId?: string) => void;
+  updateUserGymAffiliation: (userId: string, gymId?: string) => Promise<void>;
   deleteUserAccount: (userId: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export const DEFAULT_MOCK_USERS: Record<string, User> = {
-  'admin@fitpulse.com': {
-    id: 'usr-admin',
-    email: 'admin@fitpulse.com',
-    name: 'Dev System Admin (PO)',
-    role: 'ADMIN',
-    gymId: 'gym-dutra12'
-  },
-  'treinador@dutra12.com': {
-    id: 'usr-trainer-dutra',
-    email: 'treinador@dutra12.com',
-    name: 'Coach Dutra',
-    role: 'TRAINER',
-    gymId: 'gym-dutra12',
-    inviteCode: 'TRN-DUTRA12'
-  },
-  'coach.lucas@fitpulse.com': {
-    id: 'usr-trainer-lucas',
-    email: 'coach.lucas@fitpulse.com',
-    name: 'Coach Lucas',
-    role: 'TRAINER',
-    gymId: 'gym-ironfit',
-    inviteCode: 'TRN-LUCASPASIN'
-  },
-  'lucas@pasin.com': {
-    id: 'usr-student-lucas',
-    email: 'lucas@pasin.com',
-    name: 'Lucas Pasin',
-    role: 'STUDENT',
-    gymId: 'gym-dutra12',
-    trainerId: 'usr-trainer-dutra',
-    tags: ['Meia Maratona', 'Foco Bíceps', 'Avançado']
-  }
-};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => {
@@ -93,42 +59,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const [originalLoginRole, setOriginalLoginRole] = useState<'ADMIN' | 'TRAINER' | 'STUDENT' | null>(() => {
-    return (localStorage.getItem('fitpulse_orig_role') as any) || null;
+    return (localStorage.getItem('fitpulse_orig_role') as 'ADMIN' | 'TRAINER' | 'STUDENT' | null) || null;
+  });
+
+  const [adminSnapshot, setAdminSnapshot] = useState<User | null>(() => {
+    const saved = localStorage.getItem('fitpulse_admin_snapshot');
+    return saved ? JSON.parse(saved) : null;
   });
 
   const [trainersList, setTrainersList] = useState<User[]>([]);
   const [studentsList, setStudentsList] = useState<User[]>([]);
 
-  // Load trainers and students list from server / storage
-  const refreshUserLists = async () => {
-    let combined: User[] = [];
-    try {
-      const res = await fetch('/api/users');
-      const contentType = res.headers.get('content-type');
-      if (res.ok && contentType && contentType.includes('application/json')) {
-        combined = await res.json();
-      }
-    } catch (err) {
-      console.warn('Using client-side users fallback:', err);
+  const persistSession = (nextUser: User, nextToken: string, nextGym: Gym | null, origRole: User['role']) => {
+    setUser(nextUser);
+    setToken(nextToken);
+    setGym(nextGym);
+    setOriginalLoginRole(origRole);
+    localStorage.setItem('fitpulse_user', JSON.stringify(nextUser));
+    localStorage.setItem('fitpulse_token', nextToken);
+    localStorage.setItem('fitpulse_orig_role', origRole);
+    if (origRole === 'ADMIN') {
+      setAdminSnapshot(nextUser);
+      localStorage.setItem('fitpulse_admin_snapshot', JSON.stringify(nextUser));
     }
+  };
 
-    const localUsers: User[] = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
-    Object.values(DEFAULT_MOCK_USERS).forEach(u => {
-      if (!combined.some(c => c.id === u.id || c.email === u.email)) combined.push(u);
-    });
-    localUsers.forEach(u => {
-      if (!combined.some(c => c.id === u.id || c.email === u.email)) combined.push(u);
-    });
-
-    setTrainersList(combined.filter(u => u.role === 'TRAINER'));
-    setStudentsList(combined.filter(u => u.role === 'STUDENT'));
+  const refreshUserLists = async () => {
+    if (originalLoginRole !== 'ADMIN' && user?.role !== 'ADMIN') {
+      setTrainersList([]);
+      setStudentsList([]);
+      return;
+    }
+    try {
+      const combined = await apiFetch<User[]>('/api/users');
+      setTrainersList(combined.filter((u) => u.role === 'TRAINER'));
+      setStudentsList(combined.filter((u) => u.role === 'STUDENT'));
+    } catch (err) {
+      console.error('Failed to load users', err);
+    }
   };
 
   useEffect(() => {
     refreshUserLists();
-  }, [user]);
+  }, [user, originalLoginRole]);
 
-  // Apply whitelabel CSS custom properties when gym changes
   useEffect(() => {
     if (gym) {
       document.documentElement.style.setProperty('--brand-primary', gym.primaryColor || '#0f172a');
@@ -153,137 +127,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setGym(null);
       return;
     }
-
-    try {
-      const res = await fetch('/api/gyms');
-      const contentType = res.headers.get('content-type');
-      if (res.ok && contentType && contentType.includes('application/json')) {
-        const gymsList: Gym[] = await res.json();
-        const found = gymsList.find(g => g.id === u.gymId);
-        if (found) {
-          setGym(found);
-          return;
-        }
-      }
-    } catch (err) {
-      console.warn('Syncing gym fallback:', err);
-    }
-
-    const localGyms = JSON.parse(localStorage.getItem('fitpulse_gyms') || '[]');
-    const foundLocal = localGyms.find((g: any) => g.id === u.gymId);
-    if (foundLocal) {
-      setGym(foundLocal);
-    } else {
-      setGym({
-        id: 'gym-dutra12',
-        name: 'DUTRA12 Treinamento Esportivo',
-        slug: 'dutra12',
-        logoUrl: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=200&q=80',
-        bannerUrl: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1200&q=80',
-        primaryColor: '#0f172a',
-        secondaryColor: '#2563eb'
-      });
-    }
+    const gymsList = await apiFetch<Gym[]>('/api/gyms');
+    setGym(gymsList.find((g) => g.id === u.gymId) || null);
   };
 
   const login = async (email: string, pass: string) => {
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: pass })
-      });
-      const contentType = res.headers.get('content-type');
-      if (res.ok && contentType && contentType.includes('application/json')) {
-        const data = await res.json();
-        setUser(data.user);
-        setToken(data.token);
-        setGym(data.gym);
-        setOriginalLoginRole(data.user.role);
-        localStorage.setItem('fitpulse_user', JSON.stringify(data.user));
-        localStorage.setItem('fitpulse_token', data.token);
-        localStorage.setItem('fitpulse_orig_role', data.user.role);
-        return;
-      }
-    } catch (err) {
-      console.warn('Using client-side login fallback:', err);
-    }
-
-    // Client-Side Fallback for Static Web Apps
-    const lowerEmail = email.toLowerCase().trim();
-    const localUsers = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
-    let matchedUser = localUsers.find((u: any) => u.email.toLowerCase() === lowerEmail);
-    if (!matchedUser) {
-      matchedUser = DEFAULT_MOCK_USERS[lowerEmail];
-    }
-
-    if (matchedUser) {
-      setUser(matchedUser);
-      setToken('mock-jwt-token-azure-static');
-      syncGymForUser(matchedUser);
-      setOriginalLoginRole(matchedUser.role);
-      localStorage.setItem('fitpulse_user', JSON.stringify(matchedUser));
-      localStorage.setItem('fitpulse_token', 'mock-jwt-token-azure-static');
-      localStorage.setItem('fitpulse_orig_role', matchedUser.role);
-    } else {
-      throw new Error('E-mail ou senha incorretos');
-    }
+    const data = await apiFetch<{ token: string; user: User; gym: Gym | null }>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password: pass })
+    });
+    persistSession(data.user, data.token, data.gym, data.user.role);
   };
 
   const register = async (name: string, email: string, pass: string, inviteCode?: string) => {
-    try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password: pass, inviteCode })
-      });
-      const contentType = res.headers.get('content-type');
-      if (res.ok && contentType && contentType.includes('application/json')) {
-        const data = await res.json();
-        setUser(data.user);
-        setToken(data.token);
-        setGym(data.gym);
-        setOriginalLoginRole('STUDENT');
-        localStorage.setItem('fitpulse_user', JSON.stringify(data.user));
-        localStorage.setItem('fitpulse_token', data.token);
-        localStorage.setItem('fitpulse_orig_role', 'STUDENT');
-        await refreshUserLists();
-        return;
-      }
-    } catch (err) {
-      console.warn('Using client-side registration fallback:', err);
-    }
-
-    // Dynamic Trainer lookup by inviteCode
-    const localUsers = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
-    const allTrainers = [...trainersList, ...Object.values(DEFAULT_MOCK_USERS), ...localUsers].filter((u: any) => u.role === 'TRAINER');
-    const matchedTrainer = inviteCode ? allTrainers.find((u: any) => 
-      u.inviteCode?.toUpperCase() === inviteCode.toUpperCase() || 
-      `TRN-${u.name.toUpperCase().replace(/\s+/g, '')}` === inviteCode.toUpperCase() ||
-      u.id === inviteCode
-    ) : null;
-
-    const assignedTrainerId = matchedTrainer ? matchedTrainer.id : (allTrainers[0]?.id || 'usr-trainer-dutra');
-
-    const newSt: User = {
-      id: `usr-${Date.now()}`,
-      name,
-      email,
-      role: 'STUDENT',
-      gymId: matchedTrainer ? matchedTrainer.gymId : undefined,
-      trainerId: assignedTrainerId,
-      tags: ['Novo Aluno']
-    };
-
-    localStorage.setItem('fitpulse_users', JSON.stringify([...localUsers, newSt]));
-
-    setUser(newSt);
-    setToken('mock-jwt-token-azure-static');
-    syncGymForUser(newSt);
-    setOriginalLoginRole('STUDENT');
-    localStorage.setItem('fitpulse_user', JSON.stringify(newSt));
-    localStorage.setItem('fitpulse_token', 'mock-jwt-token-azure-static');
-    localStorage.setItem('fitpulse_orig_role', 'STUDENT');
+    const data = await apiFetch<{ token: string; user: User; gym: Gym | null }>('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ name, email, password: pass, inviteCode })
+    });
+    persistSession(data.user, data.token, data.gym, 'STUDENT');
     await refreshUserLists();
   };
 
@@ -292,26 +153,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(null);
     setGymState(null);
     setOriginalLoginRole(null);
+    setAdminSnapshot(null);
     localStorage.removeItem('fitpulse_user');
     localStorage.removeItem('fitpulse_token');
     localStorage.removeItem('fitpulse_gym');
     localStorage.removeItem('fitpulse_orig_role');
+    localStorage.removeItem('fitpulse_admin_snapshot');
   };
 
   const switchDemoRole = (role: 'ADMIN' | 'TRAINER' | 'STUDENT') => {
-    let mockUser: User;
-
-    if (role === 'ADMIN') {
-      mockUser = DEFAULT_MOCK_USERS['admin@fitpulse.com'];
-    } else if (role === 'TRAINER') {
-      mockUser = DEFAULT_MOCK_USERS['treinador@dutra12.com'];
-    } else {
-      mockUser = DEFAULT_MOCK_USERS['lucas@pasin.com'];
+    if (originalLoginRole !== 'ADMIN') return;
+    if (role === 'ADMIN' && adminSnapshot) {
+      setUser(adminSnapshot);
+      localStorage.setItem('fitpulse_user', JSON.stringify(adminSnapshot));
+      syncGymForUser(adminSnapshot);
+      return;
     }
-
-    setUser(mockUser);
-    syncGymForUser(mockUser);
-    localStorage.setItem('fitpulse_user', JSON.stringify(mockUser));
+    if (role === 'TRAINER' && trainersList[0]) {
+      selectTrainerUser(trainersList[0]);
+      return;
+    }
+    if (role === 'STUDENT' && studentsList[0]) {
+      selectStudentUser(studentsList[0]);
+    }
   };
 
   const selectTrainerUser = (trainer: User) => {
@@ -326,31 +190,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('fitpulse_user', JSON.stringify(student));
   };
 
-  const updateUserGymAffiliation = (userId: string, gymId?: string) => {
-    const localUsers = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
-    const updated = localUsers.map((u: any) => u.id === userId ? { ...u, gymId } : u);
-    localStorage.setItem('fitpulse_users', JSON.stringify(updated));
+  const updateUserGymAffiliation = async (userId: string, gymId?: string) => {
+    const updated = await apiFetch<User>(`/api/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ gymId: gymId || null })
+    });
     if (user && user.id === userId) {
-      const updatedUser = { ...user, gymId };
-      setUser(updatedUser);
-      syncGymForUser(updatedUser);
-      localStorage.setItem('fitpulse_user', JSON.stringify(updatedUser));
+      setUser(updated);
+      localStorage.setItem('fitpulse_user', JSON.stringify(updated));
+      await syncGymForUser(updated);
     }
+    await refreshUserLists();
   };
 
   const deleteUserAccount = async (userId: string) => {
-    try {
-      await fetch(`/api/users/${userId}`, { method: 'DELETE' });
-    } catch (err) {
-      console.warn('Error deleting user on backend:', err);
-    }
-
-    const localUsers = JSON.parse(localStorage.getItem('fitpulse_users') || '[]');
-    const updatedUsers = localUsers.filter((u: any) => u.id !== userId);
-    localStorage.setItem('fitpulse_users', JSON.stringify(updatedUsers));
+    await apiFetch(`/api/users/${userId}`, { method: 'DELETE' });
     await refreshUserLists();
-
-    // If current logged in user was deleted, reset to admin
     if (user && user.id === userId) {
       switchDemoRole('ADMIN');
     }

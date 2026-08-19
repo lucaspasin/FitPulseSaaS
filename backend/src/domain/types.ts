@@ -1,4 +1,5 @@
 export type Role = 'ADMIN' | 'TRAINER' | 'STUDENT';
+export type UserStatus = 'ACTIVE' | 'INACTIVE';
 
 export interface Gym {
   id: string;
@@ -17,10 +18,11 @@ export interface User {
   passwordHash: string;
   name: string;
   role: Role;
-  gymId: string;
-  trainerId?: string; // Assigned trainer for students
-  inviteCode?: string; // Unique invite code for trainers
-  tags?: string[]; // Custom trainer tags for student reports
+  gymId?: string;
+  trainerId?: string;
+  inviteCode?: string;
+  tags?: string[];
+  status?: UserStatus;
   createdAt: string;
 }
 
@@ -69,9 +71,9 @@ export interface DayCalendarItem {
 }
 
 export interface WeeklyMatrixDay {
-  day: string; // "Segunda", "Terça", etc.
-  morningSlot: string; // "6h-7h: Força 1 — Upper Push"
-  eveningSlot: string; // "19h: Corrida qualidade"
+  day: string;
+  morningSlot: string;
+  eveningSlot?: string;
 }
 
 export interface Schedule {
@@ -88,6 +90,10 @@ export interface Schedule {
   bikePlanNotes?: string;
   recoveryAdvice: Array<{ situation: string; recommendation: string }>;
   dailyCalendar: DayCalendarItem[];
+  categories?: string[];
+  planPrice?: number;
+  targetEndDate?: string;
+  paymentDueDate?: string;
   active: boolean;
   createdAt: string;
 }

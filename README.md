@@ -46,41 +46,69 @@ Access [http://localhost:3000/login](http://localhost:3000/login):
 
 ## 🛠️ Tech Stack & SOLID Architecture
 
-- **Frontend**: React 18, TypeScript, Tailwind CSS (v3 class-based dark mode), Lucide Icons, Vite
-- **Backend**: Node.js, Express, TypeScript, JSON Web Tokens (JWT)
-- **Repository Pattern**: `FileStorageAdapter` decoupling domain logic from persistent storage (`db.json` with auto-seeding on first launch)
-- **Architecture**: Domain-Driven Design (DDD), Single Responsibility Principle (SRP), Dependency Inversion Principle (DIP)
+- **Frontend**: React 18, TypeScript, Tailwind CSS, Vite, hosted on **Azure Static Web Apps (Free)**
+- **Backend**: Node.js, Express, TypeScript, JWT + bcrypt, hosted on **Azure Container Apps (Consumption, scale to zero)**
+- **Database**: PostgreSQL via Prisma (`PrismaStorageAdapter` behind `IStorageAdapter`)
+- **Architecture**: Domain-Driven Design, Repository Pattern, Dependency Inversion (services never import Prisma or Express)
 
 ---
 
 ## 🚀 Local Installation & Execution
 
 ```bash
-# 1. Install all dependencies for root, backend, and frontend
+# 1. Install dependencies
 npm install
 npm --prefix backend install
 npm --prefix frontend install
 
-# 2. Build backend and frontend bundles
-npm run build
+# 2. Start PostgreSQL (Docker)
+npm run db:up
 
-# 3. Start local development servers (Backend on :4000, Frontend on :3000)
+# 3. Copy backend env if needed, then migrate + seed
+copy backend\.env.example backend\.env
+npm run db:migrate
+npm run db:seed
+
+# 4. Start API (:4000) + Vite (:3000, proxies /api)
 npm run dev
+```
+
+Alternatively run the full stack with Docker:
+
+```bash
+docker compose up --build
 ```
 
 ---
 
-## 📦 CI/CD Deployment Pipeline
+## 📦 CI/CD & low-cost Azure go-live
 
-Automated CI/CD is configured using **GitHub Actions** in [.github/workflows/deploy.yml](.github/workflows/deploy.yml).
+The SPA deploys to **Azure Static Web Apps (Free)**. The API runs on **Azure Container Apps (Consumption, scale to zero)**. Postgres is **not** on Azure for now — use **[Neon Free](https://console.neon.tech)** (no credit card, scale to zero after 5 minutes). Move to Azure Database for PostgreSQL later when you want data residency or paid SLAs.
 
-### Triggers:
-- **Pull Requests** targeting `main` (`pull_request`)
-- **Pushes** to `main` (`push`)
+Approximate staging cost: **$0** while idle (SWA Free + Container Apps free grant + Neon Free). First request after idle can take a few seconds (Neon + API cold start).
 
-### Pipeline Execution Steps:
-1. Checkout repository & setup Node.js 20.
-2. Install root, backend, and frontend dependencies (`npm ci`).
-3. Compile backend TypeScript & bundle Vite frontend (`npm run build`).
-4. Upload production artifacts (`frontend/dist`).
-5. Execute deployment workflow.
+### 1. Create the free database
+1. Sign up at [console.neon.tech](https://console.neon.tech) (Free plan).
+2. Create a project (region close to Brazil, e.g. a US East or São Paulo if listed).
+3. Copy the **connection string**. Prefer the **pooled** host (`-pooler` in the hostname). It looks like `postgresql://...@ep-....neon.tech/neondb?sslmode=require`.
+
+### 2. Push the API image
+Merge to `main` (or run **Deploy FitPulse API**). The image is published to `ghcr.io/<you>/fitpulse-api`. Make that package **public**, or attach GHCR credentials to the Container App.
+
+### 3. Provision Azure API (once)
+Install [Azure CLI](https://aka.ms/azure-cli), then:
+
+```powershell
+az login
+.\scripts\azure-provision.ps1 -DatabaseUrl "postgresql://USER:PASSWORD@HOST/neondb?sslmode=require"
+```
+
+### 4. GitHub configuration
+- Secret `VITE_API_URL` = Container App URL from the script (no trailing slash)
+- Secret `AZURE_CREDENTIALS` = `az ad sp create-for-rbac ... --sdk-auth`
+- Variable `AZURE_RESOURCE_GROUP` = `rg-fitpulse-staging`
+- Variable `AZURE_CONTAINER_APP` = `ca-fitpulse-api`
+
+After `VITE_API_URL` is set, a push to `main` rebuilds the SWA frontend so the browser calls the real API.
+
+Staging demo logins only work after the API has seeded (`SEED_ON_START=true`).

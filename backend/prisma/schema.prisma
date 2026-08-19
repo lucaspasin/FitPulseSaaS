@@ -1,0 +1,142 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  TRAINER
+  STUDENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PixKeyType {
+  CPF
+  CNPJ
+  EMAIL
+  PHONE
+  EVP
+}
+
+enum PaymentStatus {
+  PAID
+  PENDING
+  OVERDUE
+}
+
+model Gym {
+  id             String   @id
+  name           String
+  slug           String   @unique
+  logoUrl        String
+  bannerUrl      String
+  primaryColor   String
+  secondaryColor String
+  createdAt      DateTime @default(now())
+  users          User[]
+}
+
+model User {
+  id           String     @id
+  email        String     @unique
+  passwordHash String
+  name         String
+  role         Role
+  gymId        String?
+  gym          Gym?       @relation(fields: [gymId], references: [id], onDelete: SetNull)
+  trainerId    String?
+  trainer      User?      @relation("TrainerStudents", fields: [trainerId], references: [id], onDelete: SetNull)
+  students     User[]     @relation("TrainerStudents")
+  inviteCode   String?    @unique
+  tags         String[]   @default([])
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now())
+
+  exercises             Exercise[]
+  schedulesAsStudent    Schedule[]           @relation("StudentSchedules")
+  schedulesAsTrainer    Schedule[]           @relation("TrainerSchedules")
+  executionLogs         WorkoutExecutionLog[]
+  paymentConfig         PaymentConfig?
+  paymentsAsStudent     StudentPayment[]     @relation("StudentPayments")
+  paymentsAsTrainer     StudentPayment[]     @relation("TrainerPayments")
+}
+
+model Exercise {
+  id           String   @id
+  trainerId    String
+  trainer      User     @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  name         String
+  category     String
+  muscleGroup  String
+  instructions String
+  gifUrl       String
+  createdAt    DateTime @default(now())
+}
+
+model Schedule {
+  id               String   @id
+  studentId        String
+  student          User     @relation("StudentSchedules", fields: [studentId], references: [id], onDelete: Cascade)
+  trainerId        String
+  trainer          User     @relation("TrainerSchedules", fields: [trainerId], references: [id], onDelete: Cascade)
+  title            String
+  objective        String   @default("")
+  description      String   @default("")
+  expectationNotes String   @default("")
+  weeklyMatrix     Json
+  progression      Json
+  workouts         Json
+  bikePlanNotes    String?
+  recoveryAdvice   Json
+  dailyCalendar    Json
+  categories       Json?
+  planPrice        Float?
+  targetEndDate    String?
+  paymentDueDate   String?
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  executionLogs    WorkoutExecutionLog[]
+}
+
+model WorkoutExecutionLog {
+  id                 String   @id
+  scheduleId         String
+  schedule           Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  studentId          String
+  student            User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  workoutTitle       String
+  completedExercises String[]
+  completedAt        DateTime
+  notes              String?
+}
+
+model PaymentConfig {
+  trainerId   String     @id
+  trainer     User       @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  pixKeyType  PixKeyType
+  pixKey      String
+  monthlyFee  Float
+  dueDay      Int
+}
+
+model StudentPayment {
+  id         String        @id
+  studentId  String
+  student    User          @relation("StudentPayments", fields: [studentId], references: [id], onDelete: Cascade)
+  trainerId  String
+  trainer    User          @relation("TrainerPayments", fields: [trainerId], references: [id], onDelete: Cascade)
+  amount     Float
+  dueDate    DateTime      @db.Date
+  status     PaymentStatus
+  paidAt     DateTime?
+  pixKey     String
+  pixKeyType PixKeyType
+}
