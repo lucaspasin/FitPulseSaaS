@@ -47,8 +47,7 @@ export const Register: React.FC<{ onSwitchToLogin: () => void }> = ({ onSwitchTo
   };
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 backdrop-blur-md">
+    <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-200/60 dark:shadow-black/30 space-y-6">
         
         <div className="text-center space-y-2">
           <div className="inline-flex p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
@@ -91,7 +90,7 @@ export const Register: React.FC<{ onSwitchToLogin: () => void }> = ({ onSwitchTo
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="lucas@pasin.com"
+              placeholder={t('emailPlaceholder')}
               className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:border-emerald-500 transition-colors"
             />
           </div>
@@ -137,8 +136,6 @@ export const Register: React.FC<{ onSwitchToLogin: () => void }> = ({ onSwitchTo
             Já tem uma conta? <span className="font-bold text-emerald-600 underline">Entrar</span>
           </button>
         </div>
-
-      </div>
     </div>
   );
 };

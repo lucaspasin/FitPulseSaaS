@@ -48,6 +48,7 @@ import {
   Activity,
   HeartPulse
 } from 'lucide-react';
+import { ModalOverlay } from '../components/ModalOverlay.js';
 
 export const TrainerDashboard: React.FC = () => {
   const { user, updateUserGymAffiliation, deleteUserAccount } = useAuth();
@@ -388,7 +389,7 @@ export const TrainerDashboard: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6 sm:space-y-8 animate-fade-in">
       
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 rounded-3xl bg-gradient-to-r from-blue-950 via-slate-900 to-slate-950 text-white border border-blue-900/50 shadow-xl">
@@ -404,7 +405,7 @@ export const TrainerDashboard: React.FC = () => {
 
         <button
           onClick={handleCopyReferral}
-          className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-600/30 flex items-center gap-2 transition-all"
+          className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all"
         >
           {copiedLink ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
           <span>{copiedLink ? t('copied') : t('copyLink')}</span>
@@ -412,10 +413,10 @@ export const TrainerDashboard: React.FC = () => {
       </div>
 
       {/* SUB-TABS NAVIGATION */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto">
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
         <button
           onClick={() => setActiveSubTab('students')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all ${
+          className={`px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
             activeSubTab === 'students' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
@@ -425,7 +426,7 @@ export const TrainerDashboard: React.FC = () => {
 
         <button
           onClick={() => setActiveSubTab('expiringWorkout')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all ${
+          className={`px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
             activeSubTab === 'expiringWorkout' ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
@@ -435,7 +436,7 @@ export const TrainerDashboard: React.FC = () => {
 
         <button
           onClick={() => setActiveSubTab('expiringPayment')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all ${
+          className={`px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
             activeSubTab === 'expiringPayment' ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
@@ -445,7 +446,7 @@ export const TrainerDashboard: React.FC = () => {
 
         <button
           onClick={() => setActiveSubTab('exercises')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all ${
+          className={`px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
             activeSubTab === 'exercises' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
@@ -455,7 +456,7 @@ export const TrainerDashboard: React.FC = () => {
 
         <button
           onClick={() => setActiveSubTab('pixSettings')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all ${
+          className={`px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all whitespace-nowrap shrink-0 ${
             activeSubTab === 'pixSettings' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
@@ -755,8 +756,8 @@ export const TrainerDashboard: React.FC = () => {
 
       {/* DEDICATED STUDENT DETAIL DRAWER / MODAL WITH STICKY NON-SCROLLING HEADER & FOOTER */}
       {selectedStudentDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-sm overflow-hidden">
-          <div className="w-full max-w-4xl h-[92vh] max-h-[92vh] flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden">
+        <ModalOverlay onClose={() => setSelectedStudentDetail(null)}>
+          <div className="w-full max-w-4xl h-[96vh] sm:h-[92vh] max-h-[96vh] flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden">
             
             {/* Sticky Header */}
             <div className="p-4 sm:p-5 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 shrink-0 bg-white dark:bg-slate-900 z-10">
@@ -777,10 +778,10 @@ export const TrainerDashboard: React.FC = () => {
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
               
               {/* Student Detail Sub-Tabs */}
-              <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 text-xs">
+              <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 text-xs overflow-x-auto">
                 <button
                   onClick={() => setStudentDetailTab('info')}
-                  className={`px-4 py-2 rounded-xl font-bold flex items-center gap-1.5 ${
+                  className={`px-4 py-2 rounded-xl font-bold flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                     studentDetailTab === 'info' ? 'bg-blue-600 text-white shadow' : 'text-slate-600 dark:text-slate-400'
                   }`}
                 >
@@ -789,7 +790,7 @@ export const TrainerDashboard: React.FC = () => {
 
                 <button
                   onClick={() => setStudentDetailTab('payments')}
-                  className={`px-4 py-2 rounded-xl font-bold flex items-center gap-1.5 ${
+                  className={`px-4 py-2 rounded-xl font-bold flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                     studentDetailTab === 'payments' ? 'bg-blue-600 text-white shadow' : 'text-slate-600 dark:text-slate-400'
                   }`}
                 >
@@ -798,7 +799,7 @@ export const TrainerDashboard: React.FC = () => {
 
                 <button
                   onClick={() => setStudentDetailTab('trains')}
-                  className={`px-4 py-2 rounded-xl font-bold flex items-center gap-1.5 ${
+                  className={`px-4 py-2 rounded-xl font-bold flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                     studentDetailTab === 'trains' ? 'bg-blue-600 text-white shadow' : 'text-slate-600 dark:text-slate-400'
                   }`}
                 >
@@ -954,13 +955,13 @@ export const TrainerDashboard: React.FC = () => {
             </div>
 
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* COLLAPSIBLE SEGMENTED WORKOUT PLAN EDITOR WITH STICKY HEADER & FOOTER */}
       {editingScheduleData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-sm overflow-hidden">
-          <div className="w-full max-w-4xl h-[92vh] max-h-[92vh] flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden">
+        <ModalOverlay onClose={() => setEditingScheduleData(null)}>
+          <div className="w-full max-w-4xl h-[96vh] sm:h-[92vh] max-h-[96vh] flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden">
             
             {/* Sticky Header with Close (X) button */}
             <div className="p-4 sm:p-5 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 shrink-0 bg-white dark:bg-slate-900 z-10">
@@ -1373,13 +1374,13 @@ export const TrainerDashboard: React.FC = () => {
             </div>
 
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* Create / Edit Exercise Modal (Exercise Bank) */}
       {showExModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 space-y-4 text-xs shadow-2xl">
+        <ModalOverlay onClose={() => setShowExModal(false)}>
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-3xl p-6 space-y-4 text-xs shadow-2xl max-h-[92vh] overflow-y-auto">
             <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
               {editingExId ? t('editExerciseInBank') : t('registerExerciseInBank')}
             </h3>
@@ -1439,7 +1440,7 @@ export const TrainerDashboard: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
     </div>

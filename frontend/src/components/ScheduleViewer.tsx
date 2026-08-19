@@ -229,7 +229,7 @@ export const ScheduleViewer: React.FC<ScheduleViewerProps> = ({ schedule, onLogW
         </div>
 
         {/* Workout Tab Selector */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-1 px-1">
           {schedule.workouts?.map((w, idx) => {
             const isToday = workoutWeekday(w) === todayName;
             return (
@@ -265,6 +265,9 @@ export const ScheduleViewer: React.FC<ScheduleViewerProps> = ({ schedule, onLogW
 
         {/* Active Workout Exercise List */}
         {activeWorkout && (
+          <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-6 shadow-md space-y-6">
+            <h3 className="font-extrabold text-base text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-3">
+              {activeWorkout.title}
           <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-md space-y-6">
             <h3 className="font-extrabold text-base text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-3 flex items-center justify-between gap-3">
               <span>{activeWorkout.title}</span>
@@ -355,9 +358,9 @@ export const ScheduleViewer: React.FC<ScheduleViewerProps> = ({ schedule, onLogW
                           {sets.map((set, setIdx) => (
                             <div
                               key={`${key}-set-${setIdx}`}
-                              className="flex items-center gap-2 sm:gap-3"
+                              className="grid grid-cols-[3.25rem_1fr_1fr] sm:flex sm:items-center gap-2 sm:gap-3"
                             >
-                              <span className="w-16 shrink-0 text-[10px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                              <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-slate-400 self-center">
                                 {t('setLabel')} {setIdx + 1}
                               </span>
                               <label className="flex-1 flex items-center gap-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-2.5 py-2">

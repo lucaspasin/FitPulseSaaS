@@ -26,6 +26,7 @@ import {
   Settings,
   Trash2
 } from 'lucide-react';
+import { ModalOverlay } from '../components/ModalOverlay.js';
 
 export const AdminDashboard: React.FC = () => {
   const { setGym, user, updateUserGymAffiliation, deleteUserAccount } = useAuth();
@@ -219,22 +220,22 @@ export const AdminDashboard: React.FC = () => {
   });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6 sm:space-y-8 animate-fade-in">
       
       {/* Header & Main Callout */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-purple-950 to-slate-900 text-white border border-purple-900/40 shadow-2xl">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 p-4 sm:p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-purple-950 to-slate-900 text-white border border-purple-900/40 shadow-2xl">
+        <div className="space-y-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[10px] font-bold uppercase tracking-wider border border-purple-500/30">
               Master Admin Backoffice
             </span>
             <span className="text-xs text-slate-400">PO / Product Owner View</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight">{t('adminDashboardTitle')}</h1>
+          <h1 className="text-xl sm:text-3xl font-black tracking-tight break-words">{t('adminDashboardTitle')}</h1>
           <p className="text-xs text-slate-300 max-w-xl">{t('adminDashboardSub')}</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-col xs:flex-row sm:flex-row items-stretch sm:items-center gap-2.5 w-full lg:w-auto">
           <button
             onClick={() => {
               setEditingGym(null);
@@ -246,7 +247,7 @@ export const AdminDashboard: React.FC = () => {
               setSecondaryColor('#2563eb');
               setShowModal(true);
             }}
-            className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-purple-600/30 transition-all"
+            className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 transition-all"
           >
             <Plus className="w-4 h-4" /> {t('createGymBtn')}
           </button>
@@ -256,7 +257,7 @@ export const AdminDashboard: React.FC = () => {
               setNewTrainerGymId('');
               setShowTrainerModal(true);
             }}
-            className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-blue-600/30 transition-all"
+            className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 transition-all"
           >
             <UserCheck className="w-4 h-4" /> {t('createTrainerBtn')}
           </button>
@@ -362,7 +363,7 @@ export const AdminDashboard: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-xs pt-1">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs pt-1">
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded-full border border-white/20" style={{ backgroundColor: g.primaryColor }} title="Primary" />
                   <div className="w-4 h-4 rounded-full border border-white/20" style={{ backgroundColor: g.secondaryColor }} title="Secondary" />
@@ -392,12 +393,12 @@ export const AdminDashboard: React.FC = () => {
 
       {/* DATASET INSPECTOR MODALS */}
       {activeInspectorModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="w-full max-w-3xl max-h-[85vh] flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden">
+        <ModalOverlay onClose={() => setActiveInspectorModal(null)}>
+          <div className="w-full max-w-3xl max-h-[92vh] flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden">
             
             {/* Header */}
-            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
-              <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+            <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-start sm:items-center justify-between gap-3 shrink-0">
+              <h3 className="text-sm sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2 min-w-0">
                 {activeInspectorModal === 'gyms' && <Building2 className="w-5 h-5 text-purple-500" />}
                 {activeInspectorModal === 'trainers' && <UserCheck className="w-5 h-5 text-blue-500" />}
                 {activeInspectorModal === 'students' && <Users className="w-5 h-5 text-emerald-500" />}
@@ -434,7 +435,7 @@ export const AdminDashboard: React.FC = () => {
               
               {/* Gyms List */}
               {activeInspectorModal === 'gyms' && filteredGymsInspector.map((g) => (
-                <div key={g.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4">
+                <div key={g.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <img src={g.logoUrl} alt={g.name} className="w-10 h-10 rounded-xl object-cover" />
                     <div>
@@ -457,18 +458,18 @@ export const AdminDashboard: React.FC = () => {
 
               {/* Trainers List WITH GYM RE-ASSIGNMENT SELECTOR AND DELETE BUTTON */}
               {activeInspectorModal === 'trainers' && filteredTrainersInspector.map((tr) => (
-                <div key={tr.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4">
+                <div key={tr.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">{tr.name}</h4>
                     <span className="text-xs text-slate-500 block">{tr.email}</span>
                     <span className="text-[10px] font-mono text-blue-500 font-bold block mt-0.5">Convite: {tr.inviteCode || 'TRN-DUTRA12'}</span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <select
                       value={tr.gymId || ''}
                       onChange={(e) => handleChangeTrainerGym(tr.id, e.target.value)}
-                      className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs font-semibold"
+                      className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs font-semibold min-w-0 flex-1 sm:flex-none"
                     >
                       <option value="">Independente (Sem Academia)</option>
                       {gyms.map((g) => (
@@ -498,7 +499,7 @@ export const AdminDashboard: React.FC = () => {
 
               {/* Students List WITH DELETE BUTTON */}
               {activeInspectorModal === 'students' && filteredStudentsInspector.map((st) => (
-                <div key={st.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4">
+                <div key={st.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">{st.name}</h4>
                     <span className="text-xs text-slate-500 block">{st.email}</span>
@@ -539,13 +540,13 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* CREATE / EDIT GYM MODAL */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 space-y-4 text-xs shadow-2xl">
+        <ModalOverlay onClose={() => setShowModal(false)}>
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-3xl p-6 space-y-4 text-xs shadow-2xl max-h-[92vh] overflow-y-auto">
             <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
               {editingGym ? 'Editar Tenant Whitelabel' : 'Novo Tenant Whitelabel'}
             </h3>
@@ -635,13 +636,13 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* CREATE TRAINER MODAL WITH GYM SELECTION DROPDOWN */}
       {showTrainerModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 space-y-4 text-xs shadow-2xl">
+        <ModalOverlay onClose={() => setShowTrainerModal(false)}>
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-3xl p-6 space-y-4 text-xs shadow-2xl max-h-[92vh] overflow-y-auto">
             <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
               <UserCheck className="w-5 h-5 text-blue-500" />
               <span>Cadastrar Novo Treinador</span>
@@ -708,12 +709,12 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {sentEmailModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 space-y-4 text-xs shadow-2xl text-center">
+        <ModalOverlay onClose={() => setSentEmailModal(null)}>
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-3xl p-6 space-y-4 text-xs shadow-2xl text-center max-h-[92vh] overflow-y-auto">
             <div className="inline-flex p-3 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
               <CheckCircle className="w-8 h-8" />
             </div>
@@ -747,7 +748,7 @@ export const AdminDashboard: React.FC = () => {
               Concluído
             </button>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
     </div>
