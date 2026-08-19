@@ -37,11 +37,16 @@ export interface Exercise {
   createdAt: string;
 }
 
+export type EffortType = 'reps' | 'time';
+
 export interface ExerciseSet {
   id?: string;
   exerciseId?: string;
   name: string;
-  setsReps: string; // e.g. "4x8-10" or "3x40s"
+  setsReps: string; // e.g. "4x8-10" or "3x40s" — kept in sync with structured fields
+  setsCount?: number;
+  effortType?: EffortType;
+  effortValue?: string;
   notes?: string;
   gifUrl?: string;
 }
@@ -49,6 +54,7 @@ export interface ExerciseSet {
 export interface WorkoutRoutine {
   id: string;
   title: string; // e.g., "Força 1 — Segunda (Upper Push)"
+  weekday?: string; // e.g. "Segunda"
   exercises: ExerciseSet[];
 }
 
@@ -101,6 +107,7 @@ export interface Schedule {
 export interface LoggedSet {
   weightKg?: number;
   reps?: number;
+  durationSec?: number;
 }
 
 export interface ExercisePerformance {
