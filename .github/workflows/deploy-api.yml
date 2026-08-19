@@ -31,6 +31,8 @@ jobs:
         with:
           context: ./backend
           push: true
+          labels: |
+            org.opencontainers.image.source=https://github.com/lucaspasin/FitPulseSaaS
           tags: |
             ghcr.io/${{ github.repository_owner }}/fitpulse-api:${{ github.sha }}
             ghcr.io/${{ github.repository_owner }}/fitpulse-api:latest
@@ -41,22 +43,16 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Point Container App at GHCR and update image
+      - name: Update Container App image
         if: ${{ vars.AZURE_RESOURCE_GROUP != '' }}
         uses: azure/cli@v2
         with:
           inlineScript: |
-            az containerapp registry set \
-              --name ${{ vars.AZURE_CONTAINER_APP || 'ca-fitpulse-api' }} \
-              --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
-              --server ghcr.io \
-              --username ${{ github.actor }} \
-              --password ${{ secrets.GITHUB_TOKEN }}
             az containerapp update \
               --name ${{ vars.AZURE_CONTAINER_APP || 'ca-fitpulse-api' }} \
               --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
               --image ghcr.io/${{ github.repository_owner }}/fitpulse-api:${{ github.sha }} \
-              --min-replicas 1 \
+              --min-replicas 0 \
               --max-replicas 3
             az containerapp ingress update \
               --name ${{ vars.AZURE_CONTAINER_APP || 'ca-fitpulse-api' }} \

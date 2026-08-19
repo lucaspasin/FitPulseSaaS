@@ -9,6 +9,7 @@ COPY src ./src
 RUN npm run build
 
 FROM node:20-alpine
+LABEL org.opencontainers.image.source="https://github.com/lucaspasin/FitPulseSaaS"
 WORKDIR /app
 RUN apk add --no-cache openssl
 COPY package*.json ./
