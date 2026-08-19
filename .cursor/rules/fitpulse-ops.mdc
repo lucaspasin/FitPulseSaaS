@@ -1,0 +1,24 @@
+---
+description: FitPulse hosting, URLs, and ops inventory — use instead of Azure/Neon lookups
+alwaysApply: true
+---
+
+# FitPulse ops (do not query Azure/Neon first)
+
+Read `ops/inventory.json` for names, URLs, and hosts. **Do not** call Azure CLI, Neon, or GitHub APIs to rediscover these unless the user says the inventory is stale or a live secret/value is required.
+
+Never copy passwords, connection strings, JWT secrets, or app passwords into this rule, git, or chat. Those stay in `backend/.env` (local) and Azure Container App secrets (`database-url`, `jwt-secret`, `smtp-pass`).
+
+## Quick facts
+
+- Frontend prod: `https://red-mushroom-0d8b1010f.7.azurestaticapps.net`
+- API prod: `https://ca-fitpulse-api.happysand-f2ba5c74.brazilsouth.azurecontainerapps.io`
+- Local: Vite `:3000`, API `:4000`, Postgres `localhost:5432` db `fitpulse`
+- Azure RG `rg-fitpulse-staging`, app `ca-fitpulse-api`, env `cae-fitpulse-staging`, region `brazilsouth`
+- Neon db `neondb`, pooled host `ep-jolly-salad-ayecdh74-pooler.c-5.us-east-2.aws.neon.tech` (us-east-2)
+- Mail from `fitpulsesaas@gmail.com` via Gmail SMTP
+- GitHub `lucaspasin/FitPulseSaaS`, image `ghcr.io/lucaspasin/fitpulse-api`
+- `SEED_ON_START=true` seeds **only if there are zero users** — restarts do not wipe prod data
+- Local DB ≠ Neon; in-progress workout UI state is not persisted until **Concluir Treino**
+
+If you change a URL, resource name, or Neon host, update `ops/inventory.json` in the same change.
